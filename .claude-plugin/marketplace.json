@@ -1,0 +1,11 @@
+{
+  "name": "redhat-docs-agent-tools",
+  "description": "Claude Code plugins, skills, and agent tools for Red Hat documentation workflows",
+  "plugins": [
+    {
+      "name": "hello-world",
+      "version": "1.0.0",
+      "description": "A hello world reference plugin for Claude Code agent tools"
+    }
+  ]
+}

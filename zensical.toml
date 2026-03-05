@@ -1,0 +1,32 @@
+[project]
+site_name = "Red Hat Docs Agent Tools"
+site_description = "Claude Code plugins, skills, and agent tools for Red Hat documentation workflows"
+site_url = "https://aireilly.github.io/redhat-docs-agent-tools/"
+[project.repository]
+url = "https://github.com/aireilly/redhat-docs-agent-tools"
+
+[project.theme]
+name = "material"
+palette.primary = "deep orange"
+logo = "images/logo.svg"
+
+[[project.theme.palette]]
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.theme.features]
+navigation = ["instant", "tabs", "sections"]
+content = ["tabs"]
+
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.md_in_html]
+
+[project.markdown_extensions.pymdownx.emoji]
+emoji_index = "zensical.extensions.emoji.twemoji"
+emoji_generator = "zensical.extensions.emoji.to_svg"
