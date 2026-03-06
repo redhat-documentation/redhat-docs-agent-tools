@@ -55,11 +55,30 @@ def load_plugins() -> list[dict]:
         skills = []
         skills_dir = plugin_dir / "skills"
         if skills_dir.is_dir():
+            # Support both flat skills/*.md and subdirectory skills/<name>/SKILL.md
             for skill_file in sorted(skills_dir.glob("*.md")):
                 skill_text = skill_file.read_text()
                 fm = parse_frontmatter(skill_text)
                 skills.append({
                     "name": skill_file.stem,
+                    "description": fm.get("description", ""),
+                })
+            for skill_file in sorted(skills_dir.glob("*/SKILL.md")):
+                skill_text = skill_file.read_text()
+                fm = parse_frontmatter(skill_text)
+                skills.append({
+                    "name": skill_file.parent.name,
+                    "description": fm.get("description", fm.get("name", "")),
+                })
+
+        agents = []
+        agents_dir = plugin_dir / "agents"
+        if agents_dir.is_dir():
+            for agent_file in sorted(agents_dir.glob("*.md")):
+                agent_text = agent_file.read_text()
+                fm = parse_frontmatter(agent_text)
+                agents.append({
+                    "name": fm.get("name", agent_file.stem),
                     "description": fm.get("description", ""),
                 })
 
@@ -69,6 +88,7 @@ def load_plugins() -> list[dict]:
             "description": meta.get("description", ""),
             "commands": commands,
             "skills": skills,
+            "agents": agents,
         })
 
     return plugins
@@ -100,6 +120,15 @@ def generate_plugins_md(plugins: list[dict]) -> str:
                 lines.append(
                     f"| `/{p['name']}:{cmd['name']}{hint}` | {cmd['description']} |"
                 )
+            lines.append("")
+
+        if p.get("agents"):
+            lines.append("### Agents")
+            lines.append("")
+            lines.append("| Agent | Description |")
+            lines.append("|-------|-------------|")
+            for agent in p["agents"]:
+                lines.append(f"| `{agent['name']}` | {agent['description']} |")
             lines.append("")
 
         if p["skills"]:
@@ -147,6 +176,15 @@ def generate_plugin_detail_page(plugin: dict) -> str:
             lines.append(cmd["description"])
             lines.append("")
 
+    if p.get("agents"):
+        lines.append("## Agents")
+        lines.append("")
+        lines.append("| Agent | Description |")
+        lines.append("|-------|-------------|")
+        for agent in p["agents"]:
+            lines.append(f"| `{agent['name']}` | {agent['description']} |")
+        lines.append("")
+
     if p["skills"]:
         lines.append("## Skills")
         lines.append("")
@@ -184,9 +222,12 @@ def generate_docs_plugins_index(plugins: list[dict]) -> str:
     for p in plugins:
         cmd_count = len(p["commands"])
         skill_count = len(p["skills"])
+        agent_count = len(p.get("agents", []))
         summary_parts = []
         if cmd_count:
             summary_parts.append(f"{cmd_count} command{'s' if cmd_count != 1 else ''}")
+        if agent_count:
+            summary_parts.append(f"{agent_count} agent{'s' if agent_count != 1 else ''}")
         if skill_count:
             summary_parts.append(f"{skill_count} skill{'s' if skill_count != 1 else ''}")
         summary = " | ".join(summary_parts) if summary_parts else "Plugin"
