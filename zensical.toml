@@ -1,8 +1,8 @@
 [project]
 site_name = "Red Hat Docs Agent Tools"
 site_description = "Claude Code plugins, skills, agents, and commands for Red Hat documentation workflows"
-site_url = "https://aireilly.github.io/redhat-docs-agent-tools/"
-repo_url = "https://github.com/aireilly/redhat-docs-agent-tools"
+site_url = "https://redhat-documentation.github.io/redhat-docs-agent-tools/"
+repo_url = "https://github.com/redhat-documentation/redhat-docs-agent-tools"
 edit_uri = "edit/main/docs/"
 extra_css = ["stylesheets/extra.css"]
 nav = [

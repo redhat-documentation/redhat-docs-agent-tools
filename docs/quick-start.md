@@ -7,7 +7,7 @@ icon: lucide/rocket
 1. Add the marketplace:
 
     ```
-    /plugin marketplace add aireilly/redhat-docs-agent-tools
+    /plugin marketplace add redhat-documentation/redhat-docs-agent-tools
     ```
 
 2. Install a plugin:

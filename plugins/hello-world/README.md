@@ -13,5 +13,5 @@ Use this plugin as a template when creating new plugins.
 ## Installation
 
 ```
-/install github:aireilly/redhat-docs-agent-tools/plugins/hello-world
+/install github:redhat-documentation/redhat-docs-agent-tools/plugins/hello-world
 ```

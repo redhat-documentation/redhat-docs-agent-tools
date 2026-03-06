@@ -8,7 +8,7 @@ A collection of Claude Code plugins, skills, and agent tools for Red Hat documen
 
 ```bash
 # Add the marketplace
-/plugin marketplace add aireilly/redhat-docs-agent-tools
+/plugin marketplace add redhat-documentation/redhat-docs-agent-tools
 
 # Install a plugin
 /plugin install hello-world@redhat-docs-agent-tools
@@ -19,13 +19,13 @@ A collection of Claude Code plugins, skills, and agent tools for Red Hat documen
 
 ### Available plugins
 
-Run `make update` to generate the plugin catalog locally, or browse the [live site](https://aireilly.github.io/redhat-docs-agent-tools/).
+Run `make update` to generate the plugin catalog locally, or browse the [live site](https://redhat-documentation.github.io/redhat-docs-agent-tools/).
 
 ## Documentation
 
 The documentation site is built with [Zensical](https://zensical.org/) and auto-deployed to GitHub Pages on every merge to main.
 
-**Live site:** https://aireilly.github.io/redhat-docs-agent-tools/
+**Live site:** https://redhat-documentation.github.io/redhat-docs-agent-tools/
 
 ### Local development
 
