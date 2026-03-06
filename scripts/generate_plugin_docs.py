@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate PLUGINS.md and docs pages from plugin metadata and commands."""
+"""Generate plugins.md and docs pages from plugin metadata and commands."""
 
 import json
 import os
@@ -95,7 +95,7 @@ def load_plugins() -> list[dict]:
 
 
 def generate_plugins_md(plugins: list[dict]) -> str:
-    """Generate the PLUGINS.md content."""
+    """Generate the plugins.md content."""
     lines = [
         "# Plugins",
         "",
@@ -156,10 +156,16 @@ def generate_plugin_detail_page(plugin: dict) -> str:
         "",
         p["description"],
         "",
-        "## Install the tools",
+        "## Install",
         "",
         "```bash",
         f"/plugin install {p['name']}@redhat-docs-agent-tools",
+        "```",
+        "",
+        "## Update",
+        "",
+        "```bash",
+        "/plugin marketplace update redhat-docs-agent-tools",
         "```",
         "",
     ]
@@ -188,19 +194,11 @@ def generate_plugin_detail_page(plugin: dict) -> str:
     if p["skills"]:
         lines.append("## Skills")
         lines.append("")
+        lines.append("| Skill | Description |")
+        lines.append("|-------|-------------|")
         for skill in p["skills"]:
-            lines.append(f"### {skill['name']}")
-            lines.append("")
-            lines.append(skill["description"])
-            lines.append("")
-
-    lines.extend([
-        "## Update",
-        "",
-        "```bash",
-        "/plugin marketplace update redhat-docs-agent-tools",
-        "```",
-    ])
+            lines.append(f"| `{skill['name']}` | {skill['description']} |")
+        lines.append("")
 
     return "\n".join(lines)
 
@@ -296,10 +294,10 @@ def generate_installation_page(plugins: list[dict]) -> str:
 def main():
     plugins = load_plugins()
 
-    # Write PLUGINS.md at repo root
+    # Write plugins.md at repo root
     plugins_md = generate_plugins_md(plugins)
-    (REPO_ROOT / "PLUGINS.md").write_text(plugins_md)
-    print(f"Generated PLUGINS.md ({len(plugins)} plugins)")
+    (REPO_ROOT / "plugins.md").write_text(plugins_md)
+    print(f"Generated plugins.md ({len(plugins)} plugins)")
 
     # Write docs pages
     DOCS_DIR.mkdir(exist_ok=True)
