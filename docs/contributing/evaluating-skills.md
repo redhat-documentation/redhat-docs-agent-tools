@@ -10,7 +10,7 @@ Use the [skill-creator](https://claude.com/plugins/skill-creator) skill to test 
 
 Each plugin can include an `evals/` directory with test definitions:
 
-```
+```bash
 plugins/my-plugin/
 ├── .claude-plugin/
 │   └── plugin.json
@@ -64,7 +64,7 @@ Define test cases in `evals/evals.json`:
 
 Use the `skill-creator` skill to run and evaluate test cases:
 
-```
+```bash
 /skill-creator test the <plugin-name> skill at plugins/<plugin-name>/commands/<command>.md
 ```
 
@@ -79,7 +79,7 @@ The skill-creator will:
 
 Test outputs are written to a `<plugin-name>-workspace/` directory (gitignored by default). The workspace is organized by iteration:
 
-```
+```bash
 my-plugin-workspace/
 └── iteration-1/
     ├── test-case-name/
@@ -117,6 +117,6 @@ The `hello-world` plugin includes a reference eval set at `plugins/hello-world/e
 
 Run the example:
 
-```
+```bash
 /skill-creator test the hello-world plugin's greet command at plugins/hello-world/commands/greet.md
 ```
