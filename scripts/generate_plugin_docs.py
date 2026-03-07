@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate plugins.md and docs pages from plugin metadata and commands."""
+"""Generate docs pages from plugin metadata and commands."""
 
 import json
 import os
@@ -93,54 +93,6 @@ def load_plugins() -> list[dict]:
 
     return plugins
 
-
-def generate_plugins_md(plugins: list[dict]) -> str:
-    """Generate the plugins.md content."""
-    lines = [
-        "# Plugins",
-        "",
-        "> This file is auto-generated. Do not edit manually.",
-        "> Run `make update` or merge to main to regenerate.",
-        "",
-    ]
-
-    for p in plugins:
-        lines.append(f"## {p['name']} (v{p['version']})")
-        lines.append("")
-        lines.append(p["description"])
-        lines.append("")
-
-        if p["commands"]:
-            lines.append("### Commands")
-            lines.append("")
-            lines.append("| Command | Description |")
-            lines.append("|---------|-------------|")
-            for cmd in p["commands"]:
-                hint = f" {cmd['argument_hint']}" if cmd["argument_hint"] else ""
-                lines.append(
-                    f"| `/{p['name']}:{cmd['name']}{hint}` | {cmd['description']} |"
-                )
-            lines.append("")
-
-        if p.get("agents"):
-            lines.append("### Agents")
-            lines.append("")
-            lines.append("| Agent | Description |")
-            lines.append("|-------|-------------|")
-            for agent in p["agents"]:
-                lines.append(f"| `{agent['name']}` | {agent['description']} |")
-            lines.append("")
-
-        if p["skills"]:
-            lines.append("### Skills")
-            lines.append("")
-            lines.append("| Skill | Description |")
-            lines.append("|-------|-------------|")
-            for skill in p["skills"]:
-                lines.append(f"| `{skill['name']}` | {skill['description']} |")
-            lines.append("")
-
-    return "\n".join(lines)
 
 
 def generate_plugin_detail_page(plugin: dict) -> str:
@@ -293,11 +245,6 @@ def generate_installation_page(plugins: list[dict]) -> str:
 
 def main():
     plugins = load_plugins()
-
-    # Write plugins.md at repo root
-    plugins_md = generate_plugins_md(plugins)
-    (REPO_ROOT / "plugins.md").write_text(plugins_md)
-    print(f"Generated plugins.md ({len(plugins)} plugins)")
 
     # Write docs pages
     DOCS_DIR.mkdir(exist_ok=True)
