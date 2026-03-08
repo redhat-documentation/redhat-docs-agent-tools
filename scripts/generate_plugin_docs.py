@@ -82,6 +82,11 @@ def load_plugins() -> list[dict]:
                     "description": fm.get("description", ""),
                 })
 
+        readme_content = ""
+        readme_path = plugin_dir / "README.md"
+        if readme_path.is_file():
+            readme_content = readme_path.read_text().strip()
+
         plugins.append({
             "name": meta.get("name", plugin_dir.name),
             "version": meta.get("version", "0.0.0"),
@@ -89,10 +94,60 @@ def load_plugins() -> list[dict]:
             "commands": commands,
             "skills": skills,
             "agents": agents,
+            "readme": readme_content,
         })
 
     return plugins
 
+
+
+def _process_readme(readme: str) -> str:
+    """Process README content for embedding in a plugin detail page.
+
+    - Strip the first heading line (replaced by the plugin title)
+    - Rename the first remaining section to 'About'
+    - Increase all heading levels by one (# -> ##, ## -> ###, etc.)
+    """
+    if not readme:
+        return ""
+
+    lines = readme.splitlines()
+
+    # Drop leading title line (e.g. "# plugin-name")
+    start = 0
+    for i, line in enumerate(lines):
+        if line.startswith("# ") and not line.startswith("## "):
+            start = i + 1
+            break
+
+    # Skip blank lines after the dropped title
+    while start < len(lines) and not lines[start].strip():
+        start += 1
+
+    body_lines = lines[start:]
+    if not body_lines:
+        return ""
+
+    # Check if there's body text before the first heading
+    has_preamble = False
+    for line in body_lines:
+        if re.match(r"^#{1,6}\s", line):
+            break
+        if line.strip():
+            has_preamble = True
+            break
+
+    result = []
+    if has_preamble:
+        result.append("## About")
+        result.append("")
+    for line in body_lines:
+        if re.match(r"^#{1,6}\s", line):
+            result.append(f"#{line}")
+        else:
+            result.append(line)
+
+    return "\n".join(result)
 
 
 def generate_plugin_detail_page(plugin: dict) -> str:
@@ -108,6 +163,14 @@ def generate_plugin_detail_page(plugin: dict) -> str:
         "",
         p["description"],
         "",
+    ]
+
+    readme_section = _process_readme(p.get("readme", ""))
+    if readme_section:
+        lines.append(readme_section)
+        lines.append("")
+
+    lines += [
         "## Install",
         "",
         "```bash",
