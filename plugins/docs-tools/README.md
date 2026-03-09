@@ -37,12 +37,12 @@
 
     ```bash
     JIRA_AUTH_TOKEN=your_jira_token
-    JIRA_URL=https://issues.redhat.com          # optional: override default JIRA instance
-    GITHUB_TOKEN=your_github_pat                # set repo scope for private, public_repo for public
-    GITLAB_TOKEN=your_gitlab_pat                # set API scope
+    JIRA_URL=https://issues.redhat.com          # Optional: defaults to https://issues.redhat.com if not set
+    GITHUB_TOKEN=your_github_pat                # Required scopes: "repo" for private repos, "public_repo" for public repos
+    GITLAB_TOKEN=your_gitlab_pat                # Required scope: "api"
     ```
     
-- Add the following to the end of your `~/.bashrc` (Linux default) or `~/.zshrc` (Apple OSX default):
+- Add the following to the end of your `~/.bashrc` (Linux) or `~/.zshrc` (macOS):
     
     ```bash
     if [ -f ~/.env ]; then
