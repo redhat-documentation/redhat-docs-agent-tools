@@ -7,8 +7,14 @@
     {
       "name": "hello-world",
       "source": "./plugins/hello-world",
-      "description": "A hello world reference plugin for Claude Code agent tools",
+      "description": "A hello world reference plugin for Claude Code agent tools.",
       "version": "1.0.0"
+    },
+    {
+      "name": "docs-tools",
+      "source": "./plugins/docs-tools",
+      "description": "Documentation review, writing, and workflow tools for Red Hat AsciiDoc and Markdown documentation.",
+      "version": "0.0.1"
     }
   ]
 }
