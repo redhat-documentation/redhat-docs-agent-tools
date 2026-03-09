@@ -1,0 +1,20 @@
+:_mod-docs-content-type: CONCEPT
+[id="ptp-elements_{context}"]
+= Elements of a PTP domain
+
+[role="_abstract"]
+PTP is used to synchronize multiple nodes connected in a network, with clocks for each node.
+The clocks synchronized by PTP are organized in a leader-follower hierarchy.
+
+Grandmaster clock:: The grandmaster clock provides standard time information to other clocks across the network.
+
+Boundary clock:: The boundary clock has ports in two or more communication paths.
+
+Ordinary clock:: The ordinary clock has a single port connection.
+
+[id="ptp-advantages-over-ntp_{context}"]
+== Advantages of PTP over NTP
+
+One of the main advantages that PTP has over NTP is the hardware support present in various network interface controllers (NIC) and network switches.
+
+Hardware-based PTP provides optimal accuracy, since the NIC can timestamp the PTP packets at the exact moment they are sent and received.

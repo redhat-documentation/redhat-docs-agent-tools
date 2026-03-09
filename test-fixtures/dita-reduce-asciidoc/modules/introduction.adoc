@@ -1,0 +1,14 @@
+[id="introduction"]
+= Introduction
+
+This module provides an introduction to the product.
+
+== Overview
+
+The product helps you accomplish your goals efficiently.
+
+== Key features
+
+* Feature one
+* Feature two
+* Feature three

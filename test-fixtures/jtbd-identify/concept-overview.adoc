@@ -1,0 +1,34 @@
+:_mod-docs-content-type: CONCEPT
+
+[id="egress-ip-overview_{context}"]
+= EgressIP configuration
+
+[role="_abstract"]
+EgressIP addresses allow you to assign one or more IP addresses to a namespace. Traffic from pods in that namespace uses the assigned IP address as the source.
+
+As a cluster administrator, you can configure EgressIP addresses to control outbound traffic from your applications.
+
+== How EgressIP addresses work
+
+When you assign an EgressIP address to a namespace, all outgoing traffic from pods in that namespace uses the EgressIP address as the source IP address.
+
+== Supported platforms
+
+EgressIP addresses are supported on the following platforms:
+
+[cols="2,1"]
+|===
+| Platform | Support
+
+| Bare metal
+| Full
+
+| VMware vSphere
+| Full
+
+| Amazon Web Services (AWS)
+| Full
+
+| Microsoft Azure
+| Full
+|===

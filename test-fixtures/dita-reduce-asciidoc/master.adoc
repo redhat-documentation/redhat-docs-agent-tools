@@ -1,0 +1,10 @@
+= Master Guide
+:toc:
+
+This is the master assembly that includes other modules.
+
+include::modules/introduction.adoc[leveloffset=+1]
+
+include::modules/installation.adoc[leveloffset=+1]
+
+include::modules/configuration.adoc[leveloffset=+1]

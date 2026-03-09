@@ -1,0 +1,28 @@
+:_mod-docs-content-type: REFERENCE
+
+[id="egress-ip-parameters_{context}"]
+= EgressIP parameters
+
+[role="_abstract"]
+Reference information for EgressIP resource parameters.
+
+[cols="2,3,1"]
+|===
+| Parameter | Description | Default
+
+| egressIPs
+| List of IP addresses to use as source IPs for egress traffic
+| None
+
+| namespaceSelector
+| Label selector for namespaces that should use the EgressIP
+| None
+
+| podSelector
+| Label selector for pods within the selected namespaces
+| All pods
+
+| nodeSelector
+| Label selector for nodes that can host the EgressIP
+| All nodes
+|===

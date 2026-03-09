@@ -1,0 +1,15 @@
+:_mod-docs-content-type: ASSEMBLY
+
+[id="getting-started-with-containers"]
+= Getting started with containers
+
+:context: getting-started
+
+[role="_abstract"]
+This guide helps you get started with containerized applications.
+
+include::modules/understanding-containers.adoc[leveloffset=+1]
+
+include::modules/installing-the-cli.adoc[leveloffset=+1]
+
+include::modules/cli-options.adoc[leveloffset=+1]

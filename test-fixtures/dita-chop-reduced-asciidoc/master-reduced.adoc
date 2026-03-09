@@ -1,0 +1,82 @@
+= Master Guide
+:toc:
+
+This is the master assembly that includes other modules.
+
+[id="introduction"]
+== Introduction
+
+This module provides an introduction to the product.
+
+=== Overview
+
+The product helps you accomplish your goals efficiently.
+
+=== Key features
+
+* Feature one
+* Feature two
+* Feature three
+
+[id="installation"]
+== Installation
+
+Follow these steps to install the product.
+
+.Prerequisites
+
+* A supported operating system
+* Network access
+
+.Procedure
+
+. Download the installer.
+. Run the installation command:
++
+[source,bash]
+----
+./install.sh
+----
+
+. Verify the installation:
++
+[source,bash]
+----
+product --version
+----
+
+[id="configuration"]
+== Configuration
+
+Configure the product to suit your needs.
+
+=== Basic configuration
+
+Edit the configuration file at `/etc/product/config.yaml`:
+
+[source,yaml]
+----
+server:
+  port: 8080
+  host: localhost
+----
+
+=== Advanced configuration
+
+For advanced users, additional options are available.
+
+==== Performance tuning
+
+Adjust the following settings for optimal performance:
+
+|===
+| Setting | Default | Description
+
+| max_connections
+| 100
+| Maximum concurrent connections
+
+| timeout
+| 30
+| Request timeout in seconds
+|===

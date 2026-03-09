@@ -1,0 +1,43 @@
+:_mod-docs-content-type: REFERENCE
+
+[id="cli-options_{context}"]
+= CLI options reference
+
+[role="_abstract"]
+The CLI supports various options for customizing its behavior.
+
+.Global options
+
+[cols="1,2,1",options="header"]
+|===
+|Option
+|Description
+|Default
+
+|`--config`
+|Path to the configuration file
+|`~/.config/app/config.yaml`
+
+|`--verbose`
+|Enable verbose output
+|`false`
+
+|`--quiet`
+|Suppress non-error output
+|`false`
+
+|`--help`
+|Display help information
+|N/A
+|===
+
+.Environment variables
+
+`APP_HOME`::
+Sets the application home directory.
+
+`APP_CONFIG`::
+Specifies the configuration file path.
+
+`APP_LOG_LEVEL`::
+Sets the logging level (`debug`, `info`, `warn`, `error`).

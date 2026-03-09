@@ -1,0 +1,35 @@
+[id="configuration"]
+= Configuration
+
+Configure the product to suit your needs.
+
+== Basic configuration
+
+Edit the configuration file at `/etc/product/config.yaml`:
+
+[source,yaml]
+----
+server:
+  port: 8080
+  host: localhost
+----
+
+== Advanced configuration
+
+For advanced users, additional options are available.
+
+=== Performance tuning
+
+Adjust the following settings for optimal performance:
+
+|===
+| Setting | Default | Description
+
+| max_connections
+| 100
+| Maximum concurrent connections
+
+| timeout
+| 30
+| Request timeout in seconds
+|===

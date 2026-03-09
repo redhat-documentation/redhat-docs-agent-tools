@@ -9,6 +9,26 @@
       "source": "./plugins/hello-world",
       "description": "A hello world reference plugin for Claude Code agent tools",
       "version": "1.0.0"
+    },
+    {
+      "name": "dita-tools",
+      "source": "./plugins/dita-tools",
+      "description": "DITA conversion tools for transforming AsciiDoc documentation to DITA 2.0 format"
+    },
+    {
+      "name": "docs-tools",
+      "source": "./plugins/docs-tools",
+      "description": "Documentation review and writing tools for Red Hat AsciiDoc documentation"
+    },
+    {
+      "name": "vale-tools",
+      "source": "./plugins/vale-tools",
+      "description": "Vale linting tools for validating documentation using Vale CLI"
+    },
+    {
+      "name": "jtbd-tools",
+      "source": "./plugins/jtbd-tools",
+      "description": "Jobs-to-be-Done (JTBD) analysis and transformation tools for AsciiDoc documentation"
     }
   ]
 }

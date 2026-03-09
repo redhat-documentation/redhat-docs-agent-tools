@@ -1,0 +1,8 @@
+{
+  "name": "dita-tools",
+  "description": "DITA conversion tools for transforming AsciiDoc documentation to DITA 2.0 format",
+  "author": {
+    "name": "Red Hat Documentation Team",
+    "email": "aireilly@redhat.com"
+  }
+}

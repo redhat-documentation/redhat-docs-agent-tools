@@ -1,0 +1,16 @@
+:_mod-docs-content-type: CONCEPT
+
+[id="understanding-containers_{context}"]
+= Understanding containers
+
+[role="_abstract"]
+Containers are lightweight, standalone executable packages that include everything needed to run an application.
+
+Containers provide a consistent environment for applications, making them portable across different systems and platforms. They use operating system-level virtualization to isolate processes and resources. Unlike virtual machines, containers share the host operating system kernel, making them more efficient.
+
+The main benefits of containers include:
+
+* **Portability**: Run the same container on any system that supports the container runtime.
+* **Consistency**: Eliminate "works on my machine" problems.
+* **Efficiency**: Use fewer resources than traditional virtual machines.
+* **Scalability**: Easily scale applications up or down.

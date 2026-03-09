@@ -1,0 +1,8 @@
+{
+  "name": "vale-tools",
+  "description": "Vale linting tools for validating documentation using Vale CLI",
+  "author": {
+    "name": "Red Hat Documentation Team",
+    "email": "aireilly@redhat.com"
+  }
+}

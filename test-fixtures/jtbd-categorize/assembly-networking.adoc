@@ -1,0 +1,13 @@
+:_mod-docs-content-type: ASSEMBLY
+
+[id="configuring-egress-networking_{context}"]
+= Configuring egress networking
+
+[role="_abstract"]
+As a cluster administrator, configure egress networking to control outbound traffic from your cluster.
+
+include::concept-overview.adoc[leveloffset=+1]
+
+include::procedure-with-gaps.adoc[leveloffset=+1]
+
+include::reference-params.adoc[leveloffset=+1]

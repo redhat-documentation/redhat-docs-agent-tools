@@ -1,0 +1,63 @@
+:_mod-docs-content-type: PROCEDURE
+
+[id="configuring-egress-ips_{context}"]
+= Configuring EgressIP addresses
+
+[role="_abstract"]
+Configure EgressIP addresses to assign a stable source IP to outbound traffic from a namespace.
+
+.Prerequisites
+
+* You have access to the cluster as a user with the `cluster-admin` role.
+* The cluster networking plugin supports EgressIP addresses.
+* You have at least one node with available IP addresses.
+
+.Procedure
+
+. Create a namespace for your application:
++
+[source,terminal]
+----
+$ oc create namespace my-app
+----
+
+. Label the namespace to enable EgressIP:
++
+[source,terminal]
+----
+$ oc label namespace my-app env=production
+----
+
+. Create an EgressIP object. Choose either a single IP or multiple IPs depending on your needs:
++
+[source,yaml]
+----
+apiVersion: k8s.ovn.org/v1
+kind: EgressIP
+metadata:
+  name: my-egress-ip
+spec:
+  egressIPs:
+  - 192.168.1.100
+  namespaceSelector:
+    matchLabels:
+      env: production
+----
+
+. Apply the configuration:
++
+[source,terminal]
+----
+$ oc apply -f egress-ip.yaml
+----
+
+. Delete any existing conflicting EgressIP objects:
++
+[source,terminal]
+----
+$ oc delete egressip old-egress-ip
+----
+
+.Verification
+
+* Verify the EgressIP was created successfully.

@@ -1,0 +1,26 @@
+[id="installation"]
+= Installation
+
+Follow these steps to install the product.
+
+.Prerequisites
+
+* A supported operating system
+* Network access
+
+.Procedure
+
+. Download the installer.
+. Run the installation command:
++
+[source,bash]
+----
+./install.sh
+----
+
+. Verify the installation:
++
+[source,bash]
+----
+product --version
+----

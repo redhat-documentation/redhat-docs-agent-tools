@@ -1,0 +1,8 @@
+{
+  "name": "docs-tools",
+  "description": "Documentation review and writing tools for Red Hat AsciiDoc documentation",
+  "author": {
+    "name": "Red Hat Documentation Team",
+    "email": "aireilly@redhat.com"
+  }
+}

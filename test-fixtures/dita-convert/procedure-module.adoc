@@ -1,0 +1,36 @@
+:_mod-docs-content-type: PROCEDURE
+
+[id="installing-the-cli_{context}"]
+= Installing the CLI
+
+[role="_abstract"]
+Install the command-line interface (CLI) to manage your application from the terminal.
+
+.Prerequisites
+
+* You have administrator access to your system.
+* You have an active internet connection.
+
+.Procedure
+
+. Download the CLI package from the official website.
+
+. Extract the package to a directory in your PATH:
++
+[source,bash]
+----
+tar -xzf cli-package.tar.gz -C /usr/local/bin
+----
+
+. Verify the installation:
++
+[source,bash]
+----
+cli --version
+----
++
+The command outputs the installed version.
+
+.Verification
+
+* Run `cli status` to confirm the CLI is working correctly.

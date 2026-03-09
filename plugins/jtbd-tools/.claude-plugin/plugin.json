@@ -1,0 +1,8 @@
+{
+  "name": "jtbd-tools",
+  "description": "Jobs-to-be-Done (JTBD) analysis and transformation tools for AsciiDoc documentation",
+  "author": {
+    "name": "Red Hat Documentation Team",
+    "email": "aireilly@redhat.com"
+  }
+}
