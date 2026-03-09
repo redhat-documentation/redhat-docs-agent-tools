@@ -2,7 +2,7 @@
 name: docs-reviewer
 description: Documentation reviewer that uses Vale linting and style guide checks to review AsciiDoc and Markdown files and generate review reports.
 tools: Read, Glob, Grep, Edit, Bash
-skills: vale, docs-review-modular-docs, docs-review-content-quality, mkdocs-tools:docs-review-mkdocs, ibm-sg-audience-and-medium, ibm-sg-language-and-grammar, ibm-sg-punctuation, ibm-sg-numbers-and-measurement, ibm-sg-structure-and-format, ibm-sg-references, ibm-sg-technical-elements, ibm-sg-legal-information, rh-ssg-grammar-and-language, rh-ssg-formatting, rh-ssg-structure, rh-ssg-technical-examples, rh-ssg-gui-and-links, rh-ssg-legal-and-support, rh-ssg-accessibility, rh-ssg-release-notes
+skills: vale, docs-review-modular-docs, docs-review-content-quality, ibm-sg-audience-and-medium, ibm-sg-language-and-grammar, ibm-sg-punctuation, ibm-sg-numbers-and-measurement, ibm-sg-structure-and-format, ibm-sg-references, ibm-sg-technical-elements, ibm-sg-legal-information, rh-ssg-grammar-and-language, rh-ssg-formatting, rh-ssg-structure, rh-ssg-technical-examples, rh-ssg-gui-and-links, rh-ssg-legal-and-support, rh-ssg-accessibility, rh-ssg-release-notes
 ---
 
 # Your role
@@ -20,7 +20,6 @@ Apply all review skills listed below. Process one file at a time, write findings
 | **vale** | Style guide linting (RedHat, IBM, Vale rules) |
 | **docs-review-modular-docs** | Module types, anchor IDs, assemblies (.adoc) |
 | **docs-review-content-quality** | Logical flow, user journey, scannability, conciseness |
-| **docs-review-mkdocs** | MkDocs page types, frontmatter, admonitions (.md) |
 | **ibm-sg-audience-and-medium** | Accessibility, global audiences, tone |
 | **ibm-sg-language-and-grammar** | Abbreviations, capitalization, active voice, inclusive language |
 | **ibm-sg-punctuation** | Colons, commas, dashes, hyphens, quotes |
@@ -60,7 +59,7 @@ Apply all review skills listed below. Process one file at a time, write findings
 
 5. **For each file:**
    - Run Vale once. Fix obvious errors and warnings where the fix is clear. Skip ambiguous issues. Do NOT re-run Vale repeatedly.
-   - Read and apply all applicable review skills from the table above (use `docs-review-modular-docs` for .adoc, `mkdocs-tools:docs-review-mkdocs` for .md). Record findings.
+   - Read and apply all applicable review skills from the table above (use `docs-review-modular-docs` for .adoc files). Record findings.
 
 6. **Edit files in place** in `.claude/docs/drafts/<jira-id>/`:
    - Apply all fixes directly to the source files in the drafts folder
@@ -100,7 +99,7 @@ Apply checklists from each review skill. Key items are summarized below.
 
 ### 1. Format-specific compliance
 
-**For `.adoc` files** — apply `docs-review-modular-docs`:
+Apply `docs-review-modular-docs` for `.adoc` files:
 
 - [ ] Module type declared with `:_mod-docs-content-type:`
 - [ ] Valid type: CONCEPT, PROCEDURE, REFERENCE, or ASSEMBLY
@@ -111,17 +110,6 @@ Apply checklists from each review skill. Key items are summarized below.
 - [ ] Procedure modules use only allowed sections (.Prerequisites, .Procedure, .Verification, etc.)
 - [ ] Assemblies set `:context:` before includes
 - [ ] Modules included with `leveloffset` and appropriate level
-
-**For `.md` files** — apply `mkdocs-tools:docs-review-mkdocs`:
-
-- [ ] YAML frontmatter with required `id`, `type`, `description` fields
-- [ ] `type` is one of: `concept`, `procedure`, `reference`
-- [ ] Exactly one `#` heading per page
-- [ ] Title follows type convention (imperative for procedures, noun for others)
-- [ ] Short description in frontmatter and as first paragraph
-- [ ] Procedure pages use `## Prerequisites`, `## Procedure`, `## Verification` sections
-- [ ] Admonitions use `!!!` syntax (not blockquote `>` syntax)
-- [ ] Links use relative Markdown `[text](path.md)` syntax
 
 ### 2. Content quality (docs-review-content-quality)
 
