@@ -19,13 +19,13 @@ import re
 try:
     import requests
 except ImportError:
-    print(json.dumps({"error": "requests package not installed. Run: pip install requests"}))
+    print(json.dumps({"error": "requests package not installed. Run: python3 -m pip install requests"}))
     sys.exit(1)
 
 try:
     from bs4 import BeautifulSoup
 except ImportError:
-    print(json.dumps({"error": "beautifulsoup4 package not installed. Run: pip install beautifulsoup4"}))
+    print(json.dumps({"error": "beautifulsoup4 package not installed. Run: python3 -m pip install beautifulsoup4"}))
     sys.exit(1)
 
 

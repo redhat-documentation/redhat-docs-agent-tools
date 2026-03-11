@@ -42,18 +42,13 @@ python3 scripts/git_pr_reader.py --url "https://github.com/owner/repo/pull/123"
 python3 scripts/git_pr_reader.py --url "https://gitlab.com/group/project/-/merge_requests/456"
 ```
 
-### With Authentication
+### Authentication
 
-**GitHub (for private repos or higher rate limits):**
-```bash
-export GITHUB_TOKEN="your-github-token"
-python3 scripts/git_pr_reader.py --url "https://github.com/owner/repo/pull/123"
-```
+Set in `~/.env` (see docs-tools README for setup):
 
-**GitLab (for private projects):**
 ```bash
-export GITLAB_TOKEN="your-gitlab-token"
-python3 scripts/git_pr_reader.py --url "https://gitlab.com/group/project/-/merge_requests/456"
+GITHUB_TOKEN=your-github-pat    # required scope: "repo" for private, "public_repo" for public
+GITLAB_TOKEN=your-gitlab-pat    # required scope: "api"
 ```
 
 ### Command Line Options

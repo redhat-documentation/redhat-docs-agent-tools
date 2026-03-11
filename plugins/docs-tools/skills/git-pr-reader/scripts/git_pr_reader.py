@@ -25,13 +25,13 @@ from typing import Dict, List, Optional, Tuple
 try:
     from github import Github, Auth
 except ImportError:
-    print(json.dumps({"error": "PyGithub not installed. Run: pip install PyGithub"}))
+    print(json.dumps({"error": "PyGithub not installed. Run: python3 -m pip install PyGithub"}))
     sys.exit(1)
 
 try:
     from gitlab import Gitlab
 except ImportError:
-    print(json.dumps({"error": "python-gitlab not installed. Run: pip install python-gitlab"}))
+    print(json.dumps({"error": "python-gitlab not installed. Run: python3 -m pip install python-gitlab"}))
     sys.exit(1)
 
 

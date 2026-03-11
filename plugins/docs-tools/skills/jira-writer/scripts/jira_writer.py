@@ -20,7 +20,7 @@ from ratelimit import limits, sleep_and_retry
 try:
     from jira import JIRA
 except ImportError:
-    print(json.dumps({"error": "jira package not installed. Run: pip install jira"}))
+    print(json.dumps({"error": "jira package not installed. Run: python3 -m pip install jira"}))
     sys.exit(1)
 
 
@@ -32,12 +32,13 @@ CUSTOM_FIELD_RELEASE_NOTE_STATUS = 'customfield_12310213'
 class JiraWriter:
     """Write-enabled JIRA client for updating issues."""
 
-    def __init__(self, server="https://issues.redhat.com"):
+    def __init__(self, server=None):
         """Initialize JIRA connection with token authentication."""
         token = os.environ.get('JIRA_AUTH_TOKEN')
         if not token:
-            raise ValueError("JIRA_AUTH_TOKEN environment variable not set")
+            raise ValueError("JIRA_AUTH_TOKEN environment variable not set. Add it to ~/.env")
 
+        server = server or os.environ.get('JIRA_URL', 'https://issues.redhat.com')
         self.jira = JIRA(server=server, token_auth=token)
         self.server = server
 

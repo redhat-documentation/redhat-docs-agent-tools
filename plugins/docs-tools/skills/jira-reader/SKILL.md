@@ -24,8 +24,11 @@ The skill uses a Python script that connects to JIRA using an authentication tok
 
 ### Environment Variables Required
 
+Set in `~/.env` (see docs-tools README for setup):
+
 ```bash
-export JIRA_AUTH_TOKEN="your-jira-token-here"
+JIRA_AUTH_TOKEN=your-jira-token
+JIRA_URL=https://issues.redhat.com  # optional, defaults to issues.redhat.com
 ```
 
 ### Examples
