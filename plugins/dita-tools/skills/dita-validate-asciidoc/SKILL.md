@@ -96,7 +96,7 @@ BasedOnStyles = AsciiDocDITA
 ## Prerequisites
 
 - Vale must be installed: https://vale.sh/docs/vale-cli/installation/
-- The `dita-includes` skill script must be available
+- The `dita-tools:dita-includes` skill script must be available
 
 ## Example invocations
 

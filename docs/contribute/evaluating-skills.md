@@ -62,7 +62,7 @@ Define test cases in `evals/evals.json`:
 
 ## Running evals
 
-Use the `skill-creator` skill to run and evaluate test cases:
+Use the `skill-creator:skill-creator` skill to run and evaluate test cases:
 
 ```bash
 /skill-creator test the <plugin-name> skill at plugins/<plugin-name>/commands/<command>.md

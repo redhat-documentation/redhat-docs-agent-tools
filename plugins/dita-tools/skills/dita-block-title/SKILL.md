@@ -38,7 +38,7 @@ Block titles before any other content type must be remediated:
 
 ### Exceptions
 
-The following block titles in PROCEDURE modules are handled by the `dita-task-title` skill instead:
+The following block titles in PROCEDURE modules are handled by the `dita-tools:dita-task-title` skill instead:
 
 - `.Prerequisites`
 - `.Procedure`

@@ -96,12 +96,12 @@ Each `--docs` source is auto-detected and resolved:
 | Local directory | Path exists as directory | Glob for `*.adoc` and `*.md` files |
 | Glob pattern | Contains `*` or `?` | Expand pattern to matching files |
 | PR/MR URL | Matches GitHub/GitLab PR URL pattern | Fetch changed doc files via `./scripts/git_review_api.py` |
-| Google Doc URL | Matches `docs.google.com` | Read via `docs-convert-gdoc-md` skill, save to temp file |
+| Google Doc URL | Matches `docs.google.com` | Read via `docs-tools:docs-convert-gdoc-md` skill, save to temp file |
 | Remote repo URL | Matches `https://github.com` or `https://gitlab.com` (non-PR) | Clone and glob for doc files |
 
 ### Step 3: Discover Code Repositories
 
-Use discovery methods in priority order. If `--jira` is provided, fetch the JIRA ticket using the `jira-reader` skill, extract linked PR/MR URLs, and parse for repo references. If no repos are found by any method, search for `:code-repo-url:` attributes in AsciiDoc files as a fallback.
+Use discovery methods in priority order. If `--jira` is provided, fetch the JIRA ticket using the `docs-tools:jira-reader` skill, extract linked PR/MR URLs, and parse for repo references. If no repos are found by any method, search for `:code-repo-url:` attributes in AsciiDoc files as a fallback.
 
 Verify at least one repo was found. If not, stop with an error listing the available discovery options.
 

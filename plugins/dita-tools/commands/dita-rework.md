@@ -84,7 +84,7 @@ git checkout -b "${BRANCH_NAME}"
 
 ### Step 3: Discover Included Files
 
-Use the `dita-includes` skill to build a list of all files referenced by the assembly:
+Use the `dita-tools:dita-includes` skill to build a list of all files referenced by the assembly:
 
 ```bash
 # Get absolute path of the assembly
@@ -101,7 +101,7 @@ Store this list for use in subsequent steps.
 
 ### Step 4: Run Baseline Vale Check
 
-Use the `dita-validate-asciidoc` skill to run Vale with AsciiDocDITA rules against all files.
+Use the `dita-tools:dita-validate-asciidoc` skill to run Vale with AsciiDocDITA rules against all files.
 
 **IMPORTANT**: The following rules are informational only and should be excluded from before/after counts (but listed separately):
 - `ConditionalCode` - ifdef/ifndef directives
@@ -629,7 +629,7 @@ cat /tmp/dita-rewrite-files.txt
 
 ### Step 4: Run Vale BEFORE (Baseline)
 
-Use the `dita-validate-asciidoc` skill to run Vale with AsciiDocDITA rules:
+Use the `dita-tools:dita-validate-asciidoc` skill to run Vale with AsciiDocDITA rules:
 
 ```bash
 # Create output directory
@@ -697,7 +697,7 @@ Track which issues were fixed for each file.
 
 ### Step 1: Run Vale AFTER
 
-Use the `dita-validate-asciidoc` skill to run Vale again and compare with baseline:
+Use the `dita-tools:dita-validate-asciidoc` skill to run Vale again and compare with baseline:
 
 ```bash
 # Run dita-validate-asciidoc to get final AsciiDocDITA issues
@@ -1062,7 +1062,7 @@ fi
 
 ### For Assemblies
 
-When the input is an assembly, use `dita-reduce-asciidoc` to create flattened versions of both current and upstream/main:
+When the input is an assembly, use `dita-tools:dita-reduce-asciidoc` to create flattened versions of both current and upstream/main:
 
 #### Step A: Create Reduced Version of Current File
 
