@@ -1,10 +1,17 @@
 # dita-tools
 
-**Important:** Always run Claude Code from a terminal in the root of the documentation repository you are working on. The dita-tools command operates on the current working directory, reading local files, checking git branches, and writing output relative to the repo root.
+
+!!! tip
+
+    Always run Claude Code from a terminal in the root of the documentation repository you are working on. The dita-tools command operates on the current working directory, reading local files, checking git branches, and writing output relative to the repo root.
+
+!!! warning
+
+    Always validate your reworked content with the [AsciiDocDITA Vale style](https://github.com/jhradilek/asciidoctor-dita-vale) (`vale --config=.vale.ini --glob='*.adoc'`) before submitting a PR/MR for merge. The `/dita-rework` command runs Vale checks during the workflow, but you must confirm that no new issues have been introduced and all reported issues are resolved before merging.
 
 ## Prerequisites
 
-- Install the [Red Hat Docs Agent Tools plugin](https://redhat-documentation.github.io/redhat-docs-agent-tools/install/)
+- Install the [Red Hat Docs Agent Tools marketplace](https://redhat-documentation.github.io/redhat-docs-agent-tools/marketplace/)
 
 - Install Ruby and required gems
 

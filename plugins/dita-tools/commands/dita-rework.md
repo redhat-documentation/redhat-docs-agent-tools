@@ -541,6 +541,8 @@ Replace `<relative_assembly_path>` with the original assembly path argument (e.g
 - If any skill fails, the workflow continues with remaining skills
 - Empty commits (no changes) are skipped automatically
 
+**IMPORTANT**: Always validate the reworked content with the AsciiDocDITA Vale style before submitting a PR/MR for merge. Run `vale --config=.vale.ini --glob='*.adoc'` on the changed files and confirm that no new issues have been introduced and all reported issues are resolved. Do not merge without a clean Vale run.
+
 ---
 
 # Phase W: Rewrite Mode (`--rewrite`)
@@ -899,6 +901,8 @@ Inform the user that the branch has been pushed and they can create a PR/MR when
 - Vale is used before and after to measure progress
 - Commits are created per-file for easy review and potential revert
 - Informational issues (AttributeReference, CrossReference, etc.) are reported but not fixed
+
+**IMPORTANT**: Always validate the reworked content with the AsciiDocDITA Vale style before submitting a PR/MR for merge. Run `vale --config=.vale.ini --glob='*.adoc'` on the changed files and confirm that no new issues have been introduced and all reported issues are resolved. Do not merge without a clean Vale run.
 
 ---
 

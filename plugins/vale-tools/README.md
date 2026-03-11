@@ -1,8 +1,12 @@
 # vale-tools
 
-**Important:** Always run Claude Code from a terminal in the root of the documentation repository you are working on.
+!!! tip
+
+    Always run Claude Code from a terminal in the root of the documentation repository you are working on.
 
 ## Prerequisites
+
+- Install the [Red Hat Docs Agent Tools marketplace](https://redhat-documentation.github.io/redhat-docs-agent-tools/marketplace/)
 
 ### GitHub CLI
 
