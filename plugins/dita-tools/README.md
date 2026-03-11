@@ -11,7 +11,7 @@
 
 ## Prerequisites
 
-- Install the [Red Hat Docs Agent Tools marketplace](https://redhat-documentation.github.io/redhat-docs-agent-tools/marketplace/)
+- Install the [Red Hat Docs Agent Tools marketplace](https://redhat-documentation.github.io/redhat-docs-agent-tools/install/)
 
 - Install Ruby and required gems
 
