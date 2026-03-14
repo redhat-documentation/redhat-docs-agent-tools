@@ -155,7 +155,7 @@ git add -u && git diff --cached --quiet || git commit -m "dita-content-type: Add
 Applied dita-content-type skill to detect and add content type attributes
 (CONCEPT, PROCEDURE, REFERENCE, ASSEMBLY, SNIPPET) for DITA compatibility.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 ```
 
 #### 5b. dita-document-id
@@ -171,7 +171,7 @@ Applied dita-document-id skill to generate and insert missing anchor IDs
 for document titles. IDs follow AsciiDoc conventions with _{context} suffix
 for modules.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 ```
 
 #### 5c. dita-callouts (rewrite for bullets)
@@ -188,7 +188,7 @@ git add -u && git diff --cached --quiet || git commit -m "dita-callouts: Transfo
 Applied dita-callouts skill with --rewrite-bullets to convert callout
 markers to bullet lists for DITA compatibility.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 ```
 
 #### 5d. dita-entity-reference
@@ -203,7 +203,7 @@ git add -u && git diff --cached --quiet || git commit -m "dita-entity-reference:
 Applied dita-entity-reference skill to replace HTML character entity
 references with Unicode equivalents for DITA compatibility.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 ```
 
 #### 5e. dita-line-break
@@ -218,7 +218,7 @@ git add -u && git diff --cached --quiet || git commit -m "dita-line-break: Remov
 Applied dita-line-break skill to remove hard line breaks and
 [%hardbreaks] options for DITA compatibility.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 ```
 
 #### 5f. dita-related-links
@@ -233,7 +233,7 @@ git add -u && git diff --cached --quiet || git commit -m "dita-related-links: Cl
 Applied dita-related-links skill to fix Additional resources sections
 by removing or relocating non-link content for DITA compatibility.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 ```
 
 #### 5g. dita-add-shortdesc-abstract
@@ -248,7 +248,7 @@ git add -u && git diff --cached --quiet || git commit -m "dita-add-shortdesc-abs
 Applied dita-add-shortdesc-abstract skill to add missing [role=\"_abstract\"]
 attributes for DITA short description support.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 ```
 
 #### 5h. dita-task-contents
@@ -263,7 +263,7 @@ git add -u && git diff --cached --quiet || git commit -m "dita-task-contents: Ad
 Applied dita-task-contents skill to add missing .Procedure block titles
 to procedure modules for DITA compatibility.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 ```
 
 #### 5i. dita-task-step
@@ -278,7 +278,7 @@ git add -u && git diff --cached --quiet || git commit -m "dita-task-step: Fix li
 Applied dita-task-step skill to add list continuation markers (+)
 for multi-block step content in procedures.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 ```
 
 #### 5j. dita-task-title
@@ -293,7 +293,7 @@ git add -u && git diff --cached --quiet || git commit -m "dita-task-title: Remov
 Applied dita-task-title skill to remove unsupported block titles from
 procedure modules for DITA compatibility.
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 ```
 
 #### 5k. dita-block-title
@@ -308,7 +308,7 @@ git add -u && git diff --cached --quiet || git commit -m "dita-block-title: Fix 
 Applied dita-block-title skill to convert or remove block titles that
 are not valid in DITA (only examples, figures, and tables support titles).
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 ```
 
 #### 5l. dita-check-asciidoctor
@@ -343,7 +343,7 @@ EXIT_CODE=$?
 
      Fixed issues detected by asciidoctor after DITA rework.
 
-     Co-Authored-By: Claude <noreply@anthropic.com>"
+     Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
      ```
 
   5. Re-run the asciidoctor check to confirm the issues are resolved:
@@ -415,7 +415,9 @@ Parse this to extract:
 
 #### Why issues remain unprocessed
 
-For each remaining issue, determine why it was not fixed by the automated scripts:
+For each remaining issue, determine why it was not fixed by the automated scripts.
+
+**NOTE**: This mapping also appears in the Phase D and Phase W summary templates. Keep all three in sync when adding new rules.
 
 | Rule | Reason Not Auto-Fixed |
 |------|----------------------|
@@ -678,7 +680,7 @@ Determine input type and build list of files to process:
 INPUT_ABS=$(realpath "${1}")
 
 if [ -d "${1}" ]; then
-    # Folder: find all .adoc files
+    # Folder: find all .adoc files (use Glob tool if available, otherwise find)
     echo "Folder detected - finding all AsciiDoc files"
     find "${INPUT_ABS}" -name "*.adoc" -type f > /tmp/dita-rewrite-files.txt
 elif grep -q "^include::" "${1}"; then
@@ -701,9 +703,6 @@ cat /tmp/dita-rewrite-files.txt
 Use the `dita-tools:dita-validate-asciidoc` skill to run Vale with AsciiDocDITA rules:
 
 ```bash
-# Create output directory
-mkdir -p .claude_docs/vale-reports
-
 # Run dita-validate-asciidoc to get all AsciiDocDITA issues
 bash ${CLAUDE_PLUGIN_ROOT}/skills/dita-validate-asciidoc/scripts/validate_asciidoc.sh "${1}" --existing > /tmp/dita-rewrite-vale-baseline.txt
 
@@ -983,8 +982,6 @@ Review DITA rework and rewrite changes by comparing the current version of a fil
 
 This command assumes you are on a branch with DITA rework changes and compares against `upstream/main` or `origin/main`.
 
-### Prerequisites
-
 - `asciidoctor` — for build checking and HTML rendering (`gem install asciidoctor`)
 - `asciidoctor-reducer` — for flattening assemblies (`gem install asciidoctor-reducer`)
 - `python3` with `html2text` — for extracting plain text from rendered HTML (`python3 -m pip install html2text`)
@@ -1134,7 +1131,9 @@ FILE_NAME=$(basename "${FILE_PATH}" .adoc)
 
 # Clean up and create temp directory for comparison files
 REVIEW_DIR="/tmp/dita-rework-review"
-rm -rf "${REVIEW_DIR}"
+if [ -n "${REVIEW_DIR}" ]; then
+    rm -rf "${REVIEW_DIR}"
+fi
 mkdir -p "${REVIEW_DIR}"
 
 # Reduce the current version
@@ -1287,8 +1286,8 @@ UPSTREAM_FILE="${REVIEW_DIR}/${FILE_NAME}-upstream.txt"
 diff -u "${UPSTREAM_FILE}" "${CURRENT_FILE}" > "${REVIEW_DIR}/changes.diff" || true
 
 # Count additions and deletions
-ADDITIONS=$(grep -c "^+" "${REVIEW_DIR}/changes.diff" 2>/dev/null | grep -v "^+++" || echo 0)
-DELETIONS=$(grep -c "^-" "${REVIEW_DIR}/changes.diff" 2>/dev/null | grep -v "^---" || echo 0)
+ADDITIONS=$(grep -c "^+[^+]" "${REVIEW_DIR}/changes.diff" 2>/dev/null || echo 0)
+DELETIONS=$(grep -c "^-[^-]" "${REVIEW_DIR}/changes.diff" 2>/dev/null || echo 0)
 
 echo "Changes detected:"
 echo "  Lines added: ${ADDITIONS}"
