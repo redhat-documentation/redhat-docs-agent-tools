@@ -106,9 +106,9 @@ asciidoctor "$INPUT_FILE" \
     cat "$OUTPUT_LOG"
 } > "${OUTPUT_LOG}.tmp" && mv "${OUTPUT_LOG}.tmp" "$OUTPUT_LOG"
 
-# Count errors and warnings from log
-ERROR_COUNT=$(grep -ci "error" "$OUTPUT_LOG" || true)
-WARNING_COUNT=$(grep -ci "warning" "$OUTPUT_LOG" || true)
+# Count errors and warnings from asciidoctor output lines only (skip header)
+ERROR_COUNT=$(grep -ci "^asciidoctor:.*error" "$OUTPUT_LOG" || true)
+WARNING_COUNT=$(grep -ci "^asciidoctor:.*warning" "$OUTPUT_LOG" || true)
 
 # Report results
 if [[ $ERROR_COUNT -gt 0 ]]; then

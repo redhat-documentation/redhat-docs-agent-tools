@@ -51,13 +51,14 @@ Run a suite of DITA cleanup tools against an AsciiDoc assembly and all its inclu
 
 ## Workflow Overview
 
-1. **Setup**: Create a git branch for the rework
-2. **Discovery**: Find all included files using `dita-includes`
-3. **Baseline**: Run Vale with AsciiDocDITA rules to establish baseline
-4. **Remediation**: Run DITA cleanup skills in sequence, committing after each
-5. **Validation**: Run Vale again to compare results
-6. **Push**: Push the branch to origin
-7. **Summary**: Write a summary file for use in PR/MR description
+1. **Validate**: Verify the input file exists
+2. **Setup**: Create a git branch for the rework
+3. **Discovery**: Find all included files using `dita-includes`
+4. **Baseline**: Run Vale with AsciiDocDITA rules to establish baseline
+5. **Remediation**: Run DITA cleanup skills in sequence, committing after each
+6. **Validation**: Run Vale again to compare results
+7. **Push**: Push the branch to origin
+8. **Summary**: Write a summary file for use in PR/MR description
 
 ## Step-by-Step Instructions
 
@@ -121,7 +122,7 @@ Use the `dita-tools:dita-validate-asciidoc` skill to run Vale with AsciiDocDITA 
 
 ```bash
 # Run dita-validate-asciidoc to get all AsciiDocDITA issues
-bash ${CLAUDE_PLUGIN_ROOT}/skills/dita-validate-asciidoc/scripts/validate_asciidoc.sh "${ASSEMBLY_PATH}" --existing > /tmp/dita-rework-vale-before-all.txt
+bash ${CLAUDE_PLUGIN_ROOT}/skills/dita-validate-asciidoc/scripts/validate_asciidoc.sh "${ASSEMBLY_ABS}" --existing > /tmp/dita-rework-vale-before-all.txt
 
 # Separate actionable issues from informational issues
 grep -v -E "AsciiDocDITA\.(ConditionalCode|AttributeReference|IncludeDirective|TagDirective)" /tmp/dita-rework-vale-before-all.txt > /tmp/dita-rework-vale-before.txt || true
@@ -149,7 +150,7 @@ while read -r file; do
 done < /tmp/dita-rework-files.txt
 
 # Commit changes
-git add -A && git commit -m "dita-content-type: Add :_mod-docs-content-type: attributes
+git add -u && git diff --cached --quiet || git commit -m "dita-content-type: Add :_mod-docs-content-type: attributes
 
 Applied dita-content-type skill to detect and add content type attributes
 (CONCEPT, PROCEDURE, REFERENCE, ASSEMBLY, SNIPPET) for DITA compatibility.
@@ -164,7 +165,7 @@ while read -r file; do
     ruby ${CLAUDE_PLUGIN_ROOT}/skills/dita-document-id/scripts/document_id.rb "$file"
 done < /tmp/dita-rework-files.txt
 
-git add -A && git commit -m "dita-document-id: Add missing document IDs
+git add -u && git diff --cached --quiet || git commit -m "dita-document-id: Add missing document IDs
 
 Applied dita-document-id skill to generate and insert missing anchor IDs
 for document titles. IDs follow AsciiDoc conventions with _{context} suffix
@@ -182,7 +183,7 @@ while read -r file; do
 done < /tmp/dita-rework-files.txt
 
 # Commit changes
-git add -A && git commit -m "dita-callouts: Transform callouts to bullet lists
+git add -u && git diff --cached --quiet || git commit -m "dita-callouts: Transform callouts to bullet lists
 
 Applied dita-callouts skill with --rewrite-bullets to convert callout
 markers to bullet lists for DITA compatibility.
@@ -197,7 +198,7 @@ while read -r file; do
     ruby ${CLAUDE_PLUGIN_ROOT}/skills/dita-entity-reference/scripts/entity_reference.rb "$file"
 done < /tmp/dita-rework-files.txt
 
-git add -A && git commit -m "dita-entity-reference: Replace HTML entities with Unicode
+git add -u && git diff --cached --quiet || git commit -m "dita-entity-reference: Replace HTML entities with Unicode
 
 Applied dita-entity-reference skill to replace HTML character entity
 references with Unicode equivalents for DITA compatibility.
@@ -212,7 +213,7 @@ while read -r file; do
     ruby ${CLAUDE_PLUGIN_ROOT}/skills/dita-line-break/scripts/line_break.rb "$file"
 done < /tmp/dita-rework-files.txt
 
-git add -A && git commit -m "dita-line-break: Remove hard line breaks
+git add -u && git diff --cached --quiet || git commit -m "dita-line-break: Remove hard line breaks
 
 Applied dita-line-break skill to remove hard line breaks and
 [%hardbreaks] options for DITA compatibility.
@@ -227,7 +228,7 @@ while read -r file; do
     ruby ${CLAUDE_PLUGIN_ROOT}/skills/dita-related-links/scripts/related_links.rb "$file"
 done < /tmp/dita-rework-files.txt
 
-git add -A && git commit -m "dita-related-links: Clean up Additional resources sections
+git add -u && git diff --cached --quiet || git commit -m "dita-related-links: Clean up Additional resources sections
 
 Applied dita-related-links skill to fix Additional resources sections
 by removing or relocating non-link content for DITA compatibility.
@@ -242,7 +243,7 @@ while read -r file; do
     ruby ${CLAUDE_PLUGIN_ROOT}/skills/dita-add-shortdesc-abstract/scripts/short_description.rb "$file"
 done < /tmp/dita-rework-files.txt
 
-git add -A && git commit -m "dita-add-shortdesc-abstract: Add [role=\"_abstract\"] attributes
+git add -u && git diff --cached --quiet || git commit -m "dita-add-shortdesc-abstract: Add [role=\"_abstract\"] attributes
 
 Applied dita-add-shortdesc-abstract skill to add missing [role=\"_abstract\"]
 attributes for DITA short description support.
@@ -257,7 +258,7 @@ while read -r file; do
     ruby ${CLAUDE_PLUGIN_ROOT}/skills/dita-task-contents/scripts/task_contents.rb "$file"
 done < /tmp/dita-rework-files.txt
 
-git add -A && git commit -m "dita-task-contents: Add .Procedure block titles
+git add -u && git diff --cached --quiet || git commit -m "dita-task-contents: Add .Procedure block titles
 
 Applied dita-task-contents skill to add missing .Procedure block titles
 to procedure modules for DITA compatibility.
@@ -272,7 +273,7 @@ while read -r file; do
     ruby ${CLAUDE_PLUGIN_ROOT}/skills/dita-task-step/scripts/task_step.rb "$file"
 done < /tmp/dita-rework-files.txt
 
-git add -A && git commit -m "dita-task-step: Fix list continuations in procedure steps
+git add -u && git diff --cached --quiet || git commit -m "dita-task-step: Fix list continuations in procedure steps
 
 Applied dita-task-step skill to add list continuation markers (+)
 for multi-block step content in procedures.
@@ -287,7 +288,7 @@ while read -r file; do
     ruby ${CLAUDE_PLUGIN_ROOT}/skills/dita-task-title/scripts/task_title.rb "$file"
 done < /tmp/dita-rework-files.txt
 
-git add -A && git commit -m "dita-task-title: Remove unsupported block titles
+git add -u && git diff --cached --quiet || git commit -m "dita-task-title: Remove unsupported block titles
 
 Applied dita-task-title skill to remove unsupported block titles from
 procedure modules for DITA compatibility.
@@ -302,7 +303,7 @@ while read -r file; do
     ruby ${CLAUDE_PLUGIN_ROOT}/skills/dita-block-title/scripts/block_title.rb "$file"
 done < /tmp/dita-rework-files.txt
 
-git add -A && git commit -m "dita-block-title: Fix unsupported block titles
+git add -u && git diff --cached --quiet || git commit -m "dita-block-title: Fix unsupported block titles
 
 Applied dita-block-title skill to convert or remove block titles that
 are not valid in DITA (only examples, figures, and tables support titles).
@@ -338,7 +339,7 @@ EXIT_CODE=$?
   4. After applying fixes, commit the changes:
 
      ```bash
-     git add -A && git commit -m "dita-check-asciidoctor: Fix asciidoctor warnings and errors
+     git add -u && git diff --cached --quiet || git commit -m "dita-check-asciidoctor: Fix asciidoctor warnings and errors
 
      Fixed issues detected by asciidoctor after DITA rework.
 
@@ -354,7 +355,7 @@ EXIT_CODE=$?
   6. Re-run `dita-validate-asciidoc` to ensure the fixes did not introduce new Vale issues:
 
      ```bash
-     bash ${CLAUDE_PLUGIN_ROOT}/skills/dita-validate-asciidoc/scripts/validate_asciidoc.sh "${ASSEMBLY_PATH}" --existing > /tmp/dita-rework-vale-recheck.txt
+     bash ${CLAUDE_PLUGIN_ROOT}/skills/dita-validate-asciidoc/scripts/validate_asciidoc.sh "${ASSEMBLY_ABS}" --existing > /tmp/dita-rework-vale-recheck.txt
 
      RECHECK_COUNT=$(grep -v -E "AsciiDocDITA\.(ConditionalCode|AttributeReference|IncludeDirective|TagDirective)" /tmp/dita-rework-vale-recheck.txt | wc -l)
      echo "Vale issues after asciidoctor fix: ${RECHECK_COUNT}"
@@ -364,6 +365,8 @@ EXIT_CODE=$?
 
 **IMPORTANT**: This step must not cause the overall workflow to fail. If issues cannot be resolved after investigation, log them as warnings and continue to Step 6.
 
+**NOTE**: The Vale re-run in this step is a targeted sanity check for the asciidoctor fix only. Step 6 is the authoritative final Vale validation that produces the before/after counts for the summary. If Step 5l's Vale re-run shows no new issues, Step 6 still runs to produce the official counts.
+
 ### Step 6: Validate Changes and Count Fixed Errors
 
 Run `dita-validate-asciidoc` again and compare with the baseline to validate the remediation work.
@@ -372,7 +375,7 @@ Run `dita-validate-asciidoc` again and compare with the baseline to validate the
 
 ```bash
 # Run dita-validate-asciidoc to get all AsciiDocDITA issues
-bash ${CLAUDE_PLUGIN_ROOT}/skills/dita-validate-asciidoc/scripts/validate_asciidoc.sh "${ASSEMBLY_PATH}" --existing > /tmp/dita-rework-vale-after-all.txt
+bash ${CLAUDE_PLUGIN_ROOT}/skills/dita-validate-asciidoc/scripts/validate_asciidoc.sh "${ASSEMBLY_ABS}" --existing > /tmp/dita-rework-vale-after-all.txt
 
 # Separate actionable issues from informational issues
 grep -v -E "AsciiDocDITA\.(ConditionalCode|AttributeReference|IncludeDirective|TagDirective)" /tmp/dita-rework-vale-after-all.txt > /tmp/dita-rework-vale-after.txt || true
@@ -702,11 +705,10 @@ Use the `dita-tools:dita-validate-asciidoc` skill to run Vale with AsciiDocDITA 
 mkdir -p .claude_docs/vale-reports
 
 # Run dita-validate-asciidoc to get all AsciiDocDITA issues
-TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 bash ${CLAUDE_PLUGIN_ROOT}/skills/dita-validate-asciidoc/scripts/validate_asciidoc.sh "${1}" --existing > /tmp/dita-rewrite-vale-baseline.txt
 
 # Separate actionable from informational issues
-grep -v -E "AsciiDocDITA\.(ConditionalCode|AttributeReference|IncludeDirective|TagDirective|CrossReference)" /tmp/dita-rewrite-vale-baseline.txt > /tmp/dita-rewrite-vale-actionable.txt || true
+grep -v -E "AsciiDocDITA\.(ConditionalCode|AttributeReference|IncludeDirective|TagDirective)" /tmp/dita-rewrite-vale-baseline.txt > /tmp/dita-rewrite-vale-actionable.txt || true
 
 # Count baseline issues
 BASELINE_COUNT=$(wc -l < /tmp/dita-rewrite-vale-actionable.txt)
@@ -770,7 +772,7 @@ Use the `dita-tools:dita-validate-asciidoc` skill to run Vale again and compare 
 bash ${CLAUDE_PLUGIN_ROOT}/skills/dita-validate-asciidoc/scripts/validate_asciidoc.sh "${1}" --existing > /tmp/dita-rewrite-vale-final.txt
 
 # Separate actionable issues
-grep -v -E "AsciiDocDITA\.(ConditionalCode|AttributeReference|IncludeDirective|TagDirective|CrossReference)" /tmp/dita-rewrite-vale-final.txt > /tmp/dita-rewrite-vale-final-actionable.txt || true
+grep -v -E "AsciiDocDITA\.(ConditionalCode|AttributeReference|IncludeDirective|TagDirective)" /tmp/dita-rewrite-vale-final.txt > /tmp/dita-rewrite-vale-final-actionable.txt || true
 
 FINAL_COUNT=$(wc -l < /tmp/dita-rewrite-vale-final-actionable.txt)
 TOTAL_FIXED=$((BASELINE_COUNT - FINAL_COUNT))
@@ -889,9 +891,8 @@ The following issues are informational only and excluded from the before/after c
 | AsciiDocDITA.AttributeReference | <count> |
 | AsciiDocDITA.IncludeDirective | <count> |
 | AsciiDocDITA.TagDirective | <count> |
-| AsciiDocDITA.CrossReference | <count> |
 
-**Note:** Informational issues represent conditional content, attribute references, cross-references, and include directives that may need manual review for DITA conversion but are not errors.
+**Note:** Informational issues represent conditional content, attribute references, and include directives that may need manual review for DITA conversion but are not errors.
 
 ## Test Plan
 
@@ -904,7 +905,21 @@ The following issues are informational only and excluded from the before/after c
 Generated with [Claude Code](https://claude.com/claude-code)
 ```
 
-After writing the file, inform the user:
+Replace `<input_path>` with the original input path argument.
+
+---
+
+## Rewrite Phase 4: Push Branch and Report
+
+Unless `--no-commit` or `--dry-run` is set:
+
+```bash
+git push -u origin "$BRANCH_NAME"
+```
+
+**IMPORTANT**: When creating a PR/MR, always target the **upstream** repository, not the user's fork. If using `gh pr create`, use `--repo <upstream-org>/<repo>` to ensure the PR is opened against upstream.
+
+After the push succeeds, inform the user:
 
 ```
 Branch pushed: ${BRANCH_NAME}
@@ -919,22 +934,6 @@ Suggested MR/PR title:
 
 Create the MR/PR and paste the rewrite summary into the description field.
 ```
-
-Replace `<input_path>` with the original input path argument.
-
----
-
-## Rewrite Phase 4: Push Branch
-
-Unless `--no-commit` or `--dry-run` is set:
-
-```bash
-git push -u origin "$BRANCH_NAME"
-```
-
-Inform the user that the branch has been pushed and they can create a PR/MR when ready.
-
-**IMPORTANT**: When creating a PR/MR, always target the **upstream** repository, not the user's fork. If using `gh pr create`, use `--repo <upstream-org>/<repo>` to ensure the PR is opened against upstream.
 
 ---
 
@@ -964,7 +963,7 @@ Inform the user that the branch has been pushed and they can create a PR/MR when
 - Each file is processed individually with contextual understanding
 - Vale is used before and after to measure progress
 - Commits are created per-file for easy review and potential revert
-- Informational issues (AttributeReference, CrossReference, etc.) are reported but not fixed
+- Informational issues (ConditionalCode, AttributeReference, IncludeDirective, TagDirective) are reported but not fixed
 
 **IMPORTANT**: Always validate the reworked content with the AsciiDocDITA Vale style before submitting a PR/MR for merge. Run `vale --config=.vale.ini --glob='*.adoc'` on the changed files and confirm that no new issues have been introduced and all reported issues are resolved. Do not merge without a clean Vale run.
 
@@ -983,6 +982,12 @@ Review DITA rework and rewrite changes by comparing the current version of a fil
 3. Run this review command to validate the changes before creating a PR/MR
 
 This command assumes you are on a branch with DITA rework changes and compares against `upstream/main` or `origin/main`.
+
+### Prerequisites
+
+- `asciidoctor` — for build checking and HTML rendering (`gem install asciidoctor`)
+- `asciidoctor-reducer` — for flattening assemblies (`gem install asciidoctor-reducer`)
+- `python3` with `html2text` — for extracting plain text from rendered HTML (`python3 -m pip install html2text`)
 
 ## Review Workflow Overview
 
@@ -1010,23 +1015,11 @@ FILE_PATH="${1}"
 # Run asciidoctor build check
 bash ${CLAUDE_PLUGIN_ROOT}/skills/dita-check-asciidoctor/scripts/check_asciidoctor.sh "${FILE_PATH}"
 EXIT_CODE=$?
-
-if [ ${EXIT_CODE} -eq 2 ]; then
-    echo ""
-    echo "ERROR: Asciidoctor build failed with errors."
-    echo "The reworked file has syntax errors that must be fixed before review."
-    echo ""
-    echo "Review the errors above and fix them before proceeding."
-    exit 1
-fi
-
-if [ ${EXIT_CODE} -eq 1 ]; then
-    echo ""
-    echo "WARNING: Asciidoctor build completed with warnings."
-    echo "Continuing with review, but consider addressing warnings."
-    echo ""
-fi
 ```
+
+- **Exit code 0**: No issues — continue to Phase 2.
+- **Exit code 1**: Warnings found — continue to Phase 2, but note warnings for the review report.
+- **Exit code 2**: Errors found — do NOT continue to Phase 2. Instead, follow the error handling procedure in Step 2 below.
 
 ### Step 2: Handle Build Errors
 
@@ -1139,12 +1132,13 @@ FILE_PATH="${1}"
 FILE_DIR=$(dirname "${FILE_PATH}")
 FILE_NAME=$(basename "${FILE_PATH}" .adoc)
 
-# Create temp directory for comparison files
+# Clean up and create temp directory for comparison files
 REVIEW_DIR="/tmp/dita-rework-review"
+rm -rf "${REVIEW_DIR}"
 mkdir -p "${REVIEW_DIR}"
 
 # Reduce the current version
-ruby ${CLAUDE_PLUGIN_ROOT}/skills/dita-reduce-asciidoc/scripts/reduce_asciidoc.rb "${FILE_PATH}" -o "${REVIEW_DIR}/${FILE_NAME}-current-reduced.adoc"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/dita-reduce-asciidoc/scripts/reduce_asciidoc.sh "${FILE_PATH}" -o "${REVIEW_DIR}/${FILE_NAME}-current-reduced.adoc"
 
 echo "Created reduced current version: ${REVIEW_DIR}/${FILE_NAME}-current-reduced.adoc"
 ```
@@ -1181,14 +1175,12 @@ done
 mkdir -p "${UPSTREAM_WORK_DIR}/${ASSEMBLY_DIR}"
 git show "${UPSTREAM_REF}:${FILE_PATH}" > "${UPSTREAM_WORK_DIR}/${FILE_PATH}"
 
-# Run asciidoctor-reducer on the upstream assembly
-cd "${UPSTREAM_WORK_DIR}"
-ruby ${CLAUDE_PLUGIN_ROOT}/skills/dita-reduce-asciidoc/scripts/reduce_asciidoc.rb "${FILE_PATH}" -o "${REVIEW_DIR}/${FILE_NAME}-upstream-reduced.adoc" 2>/dev/null || {
+# Run asciidoctor-reducer on the upstream assembly (in subshell to preserve working directory)
+(cd "${UPSTREAM_WORK_DIR}" && bash ${CLAUDE_PLUGIN_ROOT}/skills/dita-reduce-asciidoc/scripts/reduce_asciidoc.sh "${FILE_PATH}" -o "${REVIEW_DIR}/${FILE_NAME}-upstream-reduced.adoc" 2>/dev/null) || {
     # Fallback: if reduction fails, use the raw upstream assembly
     cp "${UPSTREAM_WORK_DIR}/${FILE_PATH}" "${REVIEW_DIR}/${FILE_NAME}-upstream-reduced.adoc"
     echo "Warning: Upstream reduction failed, using non-reduced upstream file"
 }
-cd -
 
 echo "Created reduced upstream version: ${REVIEW_DIR}/${FILE_NAME}-upstream-reduced.adoc"
 ```
