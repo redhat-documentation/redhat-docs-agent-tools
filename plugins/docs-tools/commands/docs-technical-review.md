@@ -97,88 +97,52 @@ Clone each repo to `/tmp/tech-review/<repo-name>/` using `git clone`. Do NOT use
 
 ### Parallelization
 
-When multiple code repositories are involved, parallelize the extract+search pipeline across repos using subagents. Each repo's pipeline (Steps 5-6) is independent and can run concurrently. Merge results before proceeding to Step 7.
+When multiple code repositories are involved, parallelize the review pipeline across repos using subagents. Each repo's pipeline is independent and can run concurrently. Merge JSON results before proceeding to Step 6.
 
 For single-repo reviews, run sequentially.
 
-### Step 5: Extract Technical References
+### Step 5: Run Deterministic Review Pipeline
 
-Run the `extract_tech_references.rb` script from `./scripts/`:
+Run the `tech_references.py` script in `review` mode. This chains four deterministic phases (extract → search → triage → scan) in a single invocation:
 
 ```bash
-ruby "./scripts/extract_tech_references.rb" \
+python3 "./scripts/tech_references.py" review \
   "${DOCS_FILES[@]}" \
-  --output /tmp/tech-review-refs.json
+  --repos "${REPO_PATHS[@]}" \
+  --docs-dir "${DOCS_SCAN_DIR}" \
+  --output /tmp/tech-review-results.json
 ```
 
+Where:
+- `${DOCS_FILES[@]}` — resolved doc file paths from Step 2
+- `${REPO_PATHS[@]}` — cloned repo paths from Step 4 (e.g. `/tmp/tech-review/repo1`)
+- `${DOCS_SCAN_DIR}` — parent directory of `--docs` sources, used for blast-radius scanning
 
-### Step 6: Search and Validate References Against Code
+The script produces a JSON file with:
+- `issues` — items flagged with confidence, severity, triage_pass, triage_status, evidence, suggested_fix, and blast_radius
+- `out_of_scope` — external commands skipped
+- `verified` — items that passed all checks
+- `discovered_schemas` — schema files found in code repos
+- `discovered_cli_definitions` — CLI entry points found (argparse, click, cobra)
 
-Run the `search_tech_references.rb` script:
+### Step 6: Source Verification (Pass 4)
 
-```bash
-ruby "./scripts/search_tech_references.rb" \
-  /tmp/tech-review-refs.json \
-  /tmp/tech-review/repo1 /tmp/tech-review/repo2 \
-  --output /tmp/tech-review-search.json
-```
+The Python script handles passes 1-3 deterministically. Pass 4 requires reading source code.
 
-**Search results by category**:
+For each issue with `triage_status: needs-confirmation` and `confidence >= 50`:
 
-| Category | Result Fields | What It Finds |
-|----------|---------------|---------------|
-| **Commands** | `found`, `scope`, `flags_checked`, `cli_validation`, `git_evidence` | Whether command exists, scope classification (in-scope/external/unknown), flag validation against argparse/click/cobra definitions |
-| **Code Blocks** | `found`, `matches` (with `type`: first_line/identifier_ratio), `missing_identifiers` | Exact or fuzzy content matches in source files of the matching language |
-| **APIs/Functions** | `found`, `matches` (with `type`: definition/usage/endpoint), `git_evidence` | Function/class/endpoint definitions and whether signatures match |
-| **Configuration** | `found`, `keys_checked`, `schema_validation`, `git_evidence` | Whether config keys exist in schema/example files, validation against discovered schema files |
-| **File Paths** | `found`, `matches` (with `type`: exact/basename) | Whether referenced paths exist, fuzzy matches if file was moved |
+1. Read the source file cited in the `evidence` field
+2. Confirm or refute the issue based on what the source code actually says
+3. Upgrade confidence if source confirms the issue
+4. Downgrade confidence (or drop the issue) if source contradicts it
 
-**Search result enrichments**:
+Do not report issues you cannot confirm against source code.
 
-- **`scope`** field on commands: `external` (system tool — skip), `in-scope` (lives in code repo — validate), `unknown` (needs investigation)
-- **`cli_validation`** on commands: If argparse/click/cobra definitions were discovered, shows `unknown_flags`, `valid_flags`, `known_flags`, and `subcommand_check` (validates only the first positional arg as a subcommand — file paths and values are ignored)
-- **`schema_validation`** on configs: If schema files were discovered, shows `keys_only_in_doc` (potentially wrong), `keys_only_in_schema` (potentially missing from docs), and `overlap_ratio`
-- **`discovered_schemas`** and **`discovered_cli_definitions`** in the top-level output: Lists what was auto-discovered for transparency
-
-### Step 6a: Structured Triage (Deterministic Classification)
-
-Process ALL search results through a deterministic classification pipeline — not just not-found items. A command can be `found: true` (binary exists) but still have stale flags (`cli_validation.unknown_flags`). Do NOT skip this step or use ad-hoc exploration.
-
-**Pass 1: Scope filtering (commands only)** — For each command result, check the `scope` field. Non-command categories (code blocks, APIs, configs, file paths) do not have scope and always proceed to Pass 2.
-- `scope: external` → Tag as `out-of-scope`, skip further analysis. These are system commands (sudo, dnf, oc, kubectl, etc.) that cannot be validated against the code repo.
-- `scope: in-scope` or `scope: unknown` → Continue to Pass 2.
-
-**Pass 2: Deterministic validation** — For items that passed scope filtering:
-- **Commands with `cli_validation`**: If `cli_validation.unknown_flags` is non-empty, flag each unknown flag as an issue. The `cli_validation.known_flags` list shows what flags actually exist in the code. Confidence is high (>=80%) because this is source-code-derived ground truth.
-- **Configs with `schema_validation`**: If `schema_validation.matched_schemas` has entries with `keys_only_in_doc` items, flag each as a potential stale/renamed key. Use `keys_only_in_schema` as candidate replacements. Confidence is medium-high (70-85%) based on `overlap_ratio`.
-- **File paths with `found: false`**: If basename matches exist, likely a moved file. Confidence 70-80%. If no matches at all, confidence <50%.
-
-**Pass 3: Evidence-based analysis** — For remaining items not resolved by Pass 2:
-- Cross-reference `git_evidence` with search results. Git log mentions of renames or deprecation → medium-high confidence (70-90%).
-- Partial matches or similar-but-different results → medium confidence (50-64%).
-- No matches at all and no git evidence → low confidence (<50%). Could be wrong repo, or reference lives elsewhere.
-
-**Pass 4: Read source files** — For items flagged in passes 2-3 with confidence >=50%, read the actual source file referenced by the match to confirm the issue. Do not report issues based solely on search output without verifying against the source.
-
-**Assigning severity**: `High` = users will hit errors (broken commands, missing APIs). `Medium` = misleading but not blocking (wrong names, stale options). `Low` = cosmetic or informational (undocumented features, formatting).
+**Severity levels**: `High` = users will hit errors (broken commands, missing APIs). `Medium` = misleading but not blocking (wrong names, stale options). `Low` = cosmetic or informational.
 
 **Threshold**: >=65% = auto-fixable, <65% = needs interactive review.
 
-### Step 7: Proactive Whole-Repo Scanning
-
-This step is **mandatory** and runs regardless of whether issues were found in Step 6. It catches issues that extraction+search may miss.
-
-**Scan scope**: The scan searches `.adoc` and `.md` files in the parent directories of the `--docs` sources. For example, if `--docs modules/proc-install.adoc` was provided, scan all `.adoc` and `.md` files under `modules/`. If `--docs` was a directory, use that directory. This captures sibling files that may have the same issues without scanning unrelated parts of the filesystem.
-
-**7a: Anti-pattern scan** — Use the discovered CLI definitions and schemas to scan the doc tree for known anti-patterns:
-
-1. **Deprecated flags**: For each `cli_validation.unknown_flags` found in Step 6, search for additional occurrences. This catches the same stale flag in files that weren't part of the initial `--docs` set.
-2. **Stale config keys**: For each `schema_validation.keys_only_in_doc` found in Step 6, search for additional occurrences.
-3. **Old binary names**: If the code repo's entry point binary name differs from what docs reference, scan for the old name.
-
-**7b: Blast radius scan** — For each issue flagged in Step 6a, search the doc tree for additional occurrences of the same pattern. Record every file and line where the pattern appears so the report captures the full blast radius.
-
-### Step 8: Report or Fix
+### Step 7: Report or Fix
 
 #### Path 1: Report only (no `--fix`)
 
@@ -248,8 +212,7 @@ Display counts of auto-fixed, interactively applied, modified, skipped, and dele
 
 ## Prerequisites
 
-- `ruby` — for reference extraction and search scripts
-- `python3` — for JIRA and Git review API scripts
+- `python3` — for the review pipeline, JIRA, and Git review API scripts
 - `git` — for cloning repositories
 - For JIRA discovery: `JIRA_AUTH_TOKEN` in `~/.env`
 - For PR discovery: `GITHUB_TOKEN` or `GITLAB_TOKEN` in `~/.env`

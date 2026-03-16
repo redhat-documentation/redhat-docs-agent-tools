@@ -1,6 +1,6 @@
 ---
 description: Run the multi-stage documentation workflow for a JIRA ticket. Orchestrates agents sequentially — requirements analysis, planning, writing, technical review, and style review
-argument-hint: [action] <ticket> [--pr <url>] [--create-jira <PROJECT>] [--mkdocs] [--integrate]
+argument-hint: [action] <ticket> [--pr <url>] [--code <url>] [--create-jira <PROJECT>] [--mkdocs] [--integrate]
 allowed-tools: Read, Write, Glob, Grep, Edit, Bash, Task, WebSearch, WebFetch
 ---
 
@@ -10,7 +10,7 @@ docs-tools:docs-workflow
 
 ## Synopsis
 
-`/docs-tools:docs-workflow [action] <ticket> [--pr <url>] [--create-jira <PROJECT>] [--mkdocs] [--integrate]`
+`/docs-tools:docs-workflow [action] <ticket> [--pr <url>] [--code <url>] [--create-jira <PROJECT>] [--mkdocs] [--integrate]`
 
 ## Description
 
@@ -82,6 +82,7 @@ Run the multi-stage documentation workflow for a JIRA ticket. This command orche
 ## Options
 
 - **--pr \<url\>**: GitHub PR or GitLab MR URL to include in requirements analysis. Can be specified multiple times across start/resume invocations.
+- **--code \<url\>**: Code repository URL for technical review validation. Repeatable. Repos are cloned and validated against in Stage 4. The code repo is also auto-discovered from `--pr` URLs when possible.
 - **--mkdocs**: Output Material for MkDocs Markdown instead of AsciiDoc. Produces `.md` files with YAML frontmatter in a `docs/` subfolder, plus a `mkdocs-nav.yml` navigation fragment.
 - **--integrate**: Integrate generated documentation into the repository's build framework after the style review completes. Detects the repository's documentation build system and moves files to the correct locations. Runs in two phases: PLAN (propose changes, ask for confirmation) then EXECUTE (apply changes). Can be passed on `start` or `resume`.
 - **--create-jira \<PROJECT\>**: Create a documentation JIRA ticket in the specified project (e.g., `INFERENG`) after the review stage completes. The project key is mandatory — there is no default. The created ticket is linked to the parent ticket with a "Document" relationship. Can be passed on `start` or `resume`.
@@ -96,8 +97,9 @@ Parse the action, ticket, and options from the command arguments.
 ACTION="${1:-start}"
 TICKET="${2:-}"
 
-# Parse --pr, --mkdocs, and --create-jira flags from remaining arguments
+# Parse --pr, --code, --mkdocs, and --create-jira flags from remaining arguments
 PR_URLS=()
+CODE_URLS=()
 CREATE_JIRA_PROJECT=""
 OUTPUT_FORMAT="adoc"
 INTEGRATE=false
@@ -105,6 +107,7 @@ shift 2 2>/dev/null
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --pr) PR_URLS+=("$2"); shift 2 ;;
+        --code) CODE_URLS+=("$2"); shift 2 ;;
         --mkdocs) OUTPUT_FORMAT="mkdocs"; shift ;;
         --create-jira) CREATE_JIRA_PROJECT="$2"; shift 2 ;;
         --integrate) INTEGRATE=true; shift ;;
@@ -124,6 +127,9 @@ echo "Ticket: ${TICKET}"
 echo "Format: ${OUTPUT_FORMAT}"
 if [[ ${#PR_URLS[@]} -gt 0 ]]; then
     echo "PR URLs: ${PR_URLS[*]}"
+fi
+if [[ ${#CODE_URLS[@]} -gt 0 ]]; then
+    echo "Code URLs: ${CODE_URLS[*]}"
 fi
 if [[ "$INTEGRATE" == "true" ]]; then
     echo "Integrate: enabled"
@@ -233,6 +239,12 @@ if [[ ${#PR_URLS[@]} -gt 0 ]]; then
     PR_URLS_JSON=$(printf '%s\n' "${PR_URLS[@]}" | jq -R . | jq -s .)
 fi
 
+# Build Code URLs JSON array
+CODE_URLS_JSON="[]"
+if [[ ${#CODE_URLS[@]} -gt 0 ]]; then
+    CODE_URLS_JSON=$(printf '%s\n' "${CODE_URLS[@]}" | jq -R . | jq -s .)
+fi
+
 cat > "$STATE_FILE" << EOF
 {
   "ticket": "${TICKET}",
@@ -242,6 +254,7 @@ cat > "$STATE_FILE" << EOF
   "status": "pending",
   "options": {
     "pr_urls": ${PR_URLS_JSON},
+    "code_urls": ${CODE_URLS_JSON},
     "format": "${OUTPUT_FORMAT}",
     "integrate": ${INTEGRATE},
     "create_jira_project": $(if [[ -n "$CREATE_JIRA_PROJECT" ]]; then printf '"%s"' "$CREATE_JIRA_PROJECT"; else echo null; fi)
@@ -284,6 +297,14 @@ for url in "${PR_URLS[@]}"; do
     echo "Added PR/MR URL: ${url}"
 done
 
+# Add new Code URLs if provided
+for url in "${CODE_URLS[@]}"; do
+    TMP=$(mktemp)
+    jq --arg url "$url" '.options.code_urls += [$url] | .options.code_urls |= unique' "$STATE_FILE" > "$TMP"
+    mv "$TMP" "$STATE_FILE"
+    echo "Added code URL: ${url}"
+done
+
 # Set integrate if provided on resume
 if [[ "$INTEGRATE" == "true" ]]; then
     TMP=$(mktemp)
@@ -320,11 +341,15 @@ echo ""
 STATUS=$(jq -r '.status' "$STATE_FILE")
 CURRENT=$(jq -r '.current_stage' "$STATE_FILE")
 PR_LIST=$(jq -r '.options.pr_urls // [] | join(", ")' "$STATE_FILE")
+CODE_LIST=$(jq -r '.options.code_urls // [] | join(", ")' "$STATE_FILE")
 
 echo "Overall Status: ${STATUS}"
 echo "Current Stage:  ${CURRENT}"
 if [[ -n "$PR_LIST" ]]; then
     echo "PR/MR URLs:     ${PR_LIST}"
+fi
+if [[ -n "$CODE_LIST" ]]; then
+    echo "Code URLs:      ${CODE_LIST}"
 fi
 echo ""
 echo "Stages:"
@@ -632,6 +657,51 @@ After the agent completes, verify the index file exists at `<DRAFTS_DIR>/_index.
 
 The technical reviewer checks documentation for technical accuracy: code examples, prerequisites, commands, failure paths, and architectural coherence. The writer and technical reviewer iterate until the technical review passes.
 
+#### Pre-stage: Clone code repositories (if available)
+
+Before launching the technical reviewer, collect code repository URLs from `--code` arguments and auto-discover from `--pr` URLs:
+
+```bash
+# Collect explicit --code URLs
+CODE_REPO_URLS=()
+for url in $(jq -r '.options.code_urls // [] | .[]' "$STATE_FILE"); do
+    CODE_REPO_URLS+=("$url")
+done
+
+# Auto-discover repo URLs from --pr URLs
+# https://github.com/org/repo/pull/123 → https://github.com/org/repo
+# https://gitlab.com/org/repo/-/merge_requests/123 → https://gitlab.com/org/repo
+for pr_url in $(jq -r '.options.pr_urls // [] | .[]' "$STATE_FILE"); do
+    REPO_URL=$(echo "$pr_url" | sed -E 's|/(pull|merge_requests)/[0-9]+.*||' | sed -E 's|/-$||')
+    CODE_REPO_URLS+=("$REPO_URL")
+done
+
+# Deduplicate
+CODE_REPO_URLS=($(printf '%s\n' "${CODE_REPO_URLS[@]}" | sort -u))
+```
+
+Clone each repo to `/tmp/tech-review/<repo-name>/`:
+
+```bash
+REPO_PATHS=()
+for url in "${CODE_REPO_URLS[@]}"; do
+    REPO_NAME=$(basename "$url" .git)
+    CLONE_DIR="/tmp/tech-review/${REPO_NAME}"
+    if [[ -d "$CLONE_DIR/.git" ]]; then
+        echo "Code repo already cloned: ${CLONE_DIR}"
+    else
+        echo "Cloning code repo: ${url} → ${CLONE_DIR}"
+        git clone "$url" "$CLONE_DIR" 2>/dev/null || {
+            echo "WARNING: Failed to clone ${url}, continuing without it"
+            continue
+        }
+    fi
+    REPO_PATHS+=("$CLONE_DIR")
+done
+```
+
+If cloning fails, warn and continue without code repos (graceful degradation).
+
 **Agent tool parameters:**
 - `subagent_type`: `docs-tools:technical-reviewer`
 - `description`: `Technical review of documentation for <TICKET>`
@@ -644,7 +714,23 @@ DRAFTS_DIR="${CLAUDE_DOCS_DIR}/drafts/${TICKET_LOWERCASE}"
 TECH_REVIEW_FILE="${DRAFTS_DIR}/_technical_review.md"
 ```
 
-**Prompt:**
+**Prompt (when code repos are available):**
+
+> Perform a technical review of the documentation drafts for ticket `<TICKET>`.
+>
+> Source drafts location: `<DRAFTS_DIR>/`
+>
+> Code repositories for validation:
+> - `<REPO_PATH_1>` (from `<URL_1>`)
+> - `<REPO_PATH_2>` (from `<URL_2>`)
+>
+> Use the `docs-tools:docs-technical-review` skill to validate docs against source code.
+>
+> Review all .adoc and .md files in the drafts directory. Follow your standard review methodology — apply the developer lens for procedures and the architect lens for concepts. Check code example integrity, prerequisite completeness, command accuracy, failure path coverage, and architectural coherence.
+>
+> Save your review report to: `<TECH_REVIEW_FILE>`
+
+**Prompt (when no code repos are available):**
 
 > Perform a technical review of the documentation drafts for ticket `<TICKET>`.
 >
