@@ -38,9 +38,11 @@
 - Create an `~/.env` file with your tokens:
 
     ```bash
-    JIRA_AUTH_TOKEN=your_jira_token
-    # Optional: defaults to https://issues.redhat.com if not set
-    JIRA_URL=https://issues.redhat.com
+    JIRA_AUTH_TOKEN=your_jira_api_token
+    # Required for Atlassian Cloud authentication
+    JIRA_EMAIL=you@redhat.com
+    # Optional: defaults to https://redhat.atlassian.net if not set
+    JIRA_URL=https://redhat.atlassian.net
     # Required scopes: "repo" for private repos, "public_repo" for public repos
     GITHUB_TOKEN=your_github_pat
     # Required scope: "api"

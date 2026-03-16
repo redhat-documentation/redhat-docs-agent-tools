@@ -24,22 +24,44 @@ except ImportError:
     sys.exit(1)
 
 
+def load_env_file():
+    """Load environment variables from ~/.env file."""
+    env_file = os.path.expanduser("~/.env")
+    if os.path.exists(env_file):
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
+                    os.environ.setdefault(key.strip(), value.strip())
+
+
 # Custom field IDs used in Red Hat JIRA
-CUSTOM_FIELD_RELEASE_NOTE_CONTENT = 'customfield_12317313'
-CUSTOM_FIELD_RELEASE_NOTE_STATUS = 'customfield_12310213'
+CUSTOM_FIELD_RELEASE_NOTE_CONTENT = 'customfield_10783'
+CUSTOM_FIELD_RELEASE_NOTE_STATUS = 'customfield_10807'
 
 
 class JiraWriter:
     """Write-enabled JIRA client for updating issues."""
 
     def __init__(self, server=None):
-        """Initialize JIRA connection with token authentication."""
+        """Initialize JIRA connection with appropriate authentication."""
+        load_env_file()
+
         token = os.environ.get('JIRA_AUTH_TOKEN')
         if not token:
             raise ValueError("JIRA_AUTH_TOKEN environment variable not set. Add it to ~/.env")
 
-        server = server or os.environ.get('JIRA_URL', 'https://issues.redhat.com')
-        self.jira = JIRA(server=server, token_auth=token)
+        server = server or os.environ.get('JIRA_URL', 'https://redhat.atlassian.net')
+
+        if 'atlassian.net' in server:
+            email = os.environ.get('JIRA_EMAIL')
+            if not email:
+                raise ValueError("JIRA_EMAIL environment variable not set. Required for Atlassian Cloud. Add it to ~/.env")
+            self.jira = JIRA(server=server, basic_auth=(email, token))
+        else:
+            self.jira = JIRA(server=server, token_auth=token)
+
         self.server = server
 
     @sleep_and_retry

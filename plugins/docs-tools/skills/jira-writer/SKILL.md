@@ -6,7 +6,7 @@ author: Gabriel McGoldrick (gmcgoldr@redhat.com)
 
 # JIRA Writer Skill
 
-This skill provides write access to JIRA issues on Red Hat Issue Tracker (https://issues.redhat.com).
+This skill provides write access to JIRA issues on Red Hat Issue Tracker (https://redhat.atlassian.net).
 
 **WARNING: This skill modifies JIRA issues. Always verify the changes before confirming.**
 
@@ -26,35 +26,36 @@ The skill uses a Python script that connects to JIRA using an authentication tok
 Set in `~/.env` (see docs-tools README for setup):
 
 ```bash
-JIRA_AUTH_TOKEN=your-jira-token
-JIRA_URL=https://issues.redhat.com  # optional, defaults to issues.redhat.com
+JIRA_AUTH_TOKEN=your-jira-api-token
+JIRA_EMAIL=you@redhat.com           # required for Atlassian Cloud
+JIRA_URL=https://redhat.atlassian.net  # optional, defaults to redhat.atlassian.net
 ```
 
 ### Examples
 
 **Push a release note:**
 ```bash
-python3 scripts/jira_writer.py --issue COO-1145 --release-note "Fixed issue with Korrel8r..."
+python3 scripts/jira_writer.py --issue INFERENG-5233 --release-note "Fixed issue with..."
 ```
 
 **Update release note status:**
 ```bash
-python3 scripts/jira_writer.py --issue COO-1145 --status Proposed
+python3 scripts/jira_writer.py --issue INFERENG-5233 --status Proposed
 ```
 
 **Update custom field:**
 ```bash
-python3 scripts/jira_writer.py --issue COO-1145 --custom-field customfield_12317313 --value "Release note content"
+python3 scripts/jira_writer.py --issue INFERENG-5233 --custom-field customfield_10783 --value "Release note content"
 ```
 
 **Batch update multiple issues:**
 ```bash
-python3 scripts/jira_writer.py --issue COO-1145 --issue COO-1271 --status Approved
+python3 scripts/jira_writer.py --issue INFERENG-5233 --issue INFERENG-5049 --status Approved
 ```
 
 **Read release note from file:**
 ```bash
-python3 scripts/jira_writer.py --issue COO-1145 --release-note-file /path/to/note.txt
+python3 scripts/jira_writer.py --issue INFERENG-5233 --release-note-file /path/to/note.txt
 ```
 
 ## Output Format
@@ -64,20 +65,21 @@ The script outputs JSON with the following structure:
 ```json
 {
   "success": true,
-  "issue_key": "COO-1145",
+  "issue_key": "INFERENG-5233",
   "updated_fields": {
-    "customfield_12317313": "Release note content",
-    "customfield_12310213": "Proposed"
+    "customfield_10783": "Release note content",
+    "customfield_10807": "Proposed"
   },
-  "url": "https://issues.redhat.com/browse/COO-1145"
+  "url": "https://redhat.atlassian.net/browse/INFERENG-5233"
 }
 ```
 
 ## Custom Fields
 
 Common custom fields used:
-- `customfield_12317313`: Release Note Content
-- `customfield_12310213`: Release Note Status (values: Proposed, Approved, Rejected)
+- `customfield_10783`: Release Note Text
+- `customfield_10807`: Release Note Status (values: Proposed, Approved, Rejected)
+- `customfield_10785`: Release Note Type
 
 ## Rate Limiting
 

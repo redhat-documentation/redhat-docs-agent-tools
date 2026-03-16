@@ -1,13 +1,13 @@
 ---
 name: jira-reader
-description: Read and analyze JIRA issues from Red Hat Issue Tracker. Use this skill to fetch issue details, search issues, extract comments and discussions, categorize issues (bugs, CVEs, features, stories), analyze custom fields (release notes, fix versions), retrieve Git links, and generate summaries. This skill is read-only and cannot modify JIRA issues. Requires jira and ratelimit Python packages.
+description: Read and analyze JIRA issues from Red Hat Issue Tracker. Use this skill to fetch issue details, search issues, extract comments and discussions, categorize issues (bugs, CVEs, features, stories), analyze custom fields (release notes, fix versions), retrieve Git links, traverse ticket graphs (parent, children, siblings, links), and generate summaries. This skill is read-only and cannot modify JIRA issues. Requires jira and ratelimit Python packages.
 author: Gabriel McGoldrick (gmcgoldr@redhat.com)
 allowed-tools: Read, Bash, Grep, Glob
 ---
 
 # JIRA Reader Skill
 
-This skill provides read-only access to JIRA issues on Red Hat Issue Tracker (https://issues.redhat.com).
+This skill provides read-only access to JIRA issues on Red Hat Issue Tracker (https://redhat.atlassian.net).
 
 ## Capabilities
 
@@ -17,6 +17,7 @@ This skill provides read-only access to JIRA issues on Red Hat Issue Tracker (ht
 - **Find Git Links**: Retrieve related GitHub/GitLab pull requests and commits
 - **Categorize Issues**: Classify issues as bugs, CVEs, features, stories, epics, tasks
 - **Generate Summaries**: Create categorized reports and analysis of multiple issues
+- **Ticket Graph Traversal**: Map relationships — parent, children, siblings, issue links, web links
 
 ## Usage
 
@@ -27,35 +28,46 @@ The skill uses a Python script that connects to JIRA using an authentication tok
 Set in `~/.env` (see docs-tools README for setup):
 
 ```bash
-JIRA_AUTH_TOKEN=your-jira-token
-JIRA_URL=https://issues.redhat.com  # optional, defaults to issues.redhat.com
+JIRA_AUTH_TOKEN=your-jira-api-token
+JIRA_EMAIL=you@redhat.com           # required for Atlassian Cloud
+JIRA_URL=https://redhat.atlassian.net  # optional, defaults to redhat.atlassian.net
 ```
 
 ### Examples
 
 **Fetch a single issue:**
 ```bash
-python3 scripts/jira_reader.py --issue COO-1145
+python3 scripts/jira_reader.py --issue INFERENG-5233
 ```
 
 **Fetch issue with comments:**
 ```bash
-python3 scripts/jira_reader.py --issue COO-1145 --include-comments
+python3 scripts/jira_reader.py --issue INFERENG-5233 --include-comments
 ```
 
 **Fetch multiple issues:**
 ```bash
-python3 scripts/jira_reader.py --issue COO-1145 --issue COO-1271 --issue COO-1130
+python3 scripts/jira_reader.py --issue INFERENG-5233 --issue INFERENG-5049
 ```
 
 **Search issues by JQL (FAST - returns summaries):**
 ```bash
-python3 scripts/jira_reader.py --jql "project=COO AND fixVersion='1.3.0 RC'"
+python3 scripts/jira_reader.py --jql "project=INFERENG AND status='In Progress'"
 ```
 
 **Search with full details (SLOW - fetches all fields):**
 ```bash
-python3 scripts/jira_reader.py --jql "project=COO AND fixVersion='1.3.0 RC'" --fetch-details
+python3 scripts/jira_reader.py --jql "project=INFERENG AND status='In Progress'" --fetch-details
+```
+
+**Traverse the ticket graph:**
+```bash
+python3 scripts/jira_reader.py --graph INFERENG-5233
+```
+
+**Graph with custom limits:**
+```bash
+python3 scripts/jira_reader.py --graph INFERENG-5233 --max-children 10 --max-siblings 10 --max-links 20
 ```
 
 ## Performance Modes
@@ -74,51 +86,76 @@ Fetches full details for each issue (N+1 API calls, ~2.5 seconds per issue):
 
 Use for: Deep analysis, comment threads, Git link extraction
 
+### Graph Mode (`--graph`)
+Traverses ticket relationships bounded to 1 level deep:
+- Parent detection (standard parent field + Parent Link custom field)
+- Children (via parent and Epic Link JQL queries)
+- Siblings (active statuses under same parent)
+- Issue links (blocks, clones, relates to)
+- Remote/web links (classified as PRs, Google Docs, or other)
+
+Use for: Understanding ticket context, documentation workflows, relationship mapping
+
 ## Output Formats
 
 **Summary output (default for JQL):**
 ```json
 {
-  "issue_key": "COO-1145",
-  "issue_type": "Bug",
-  "issue_category": "Bug",
-  "priority": "Blocker",
-  "status": "Verified",
-  "assignee": "Alan Conway",
+  "issue_key": "INFERENG-5233",
+  "issue_type": "Task",
+  "issue_category": "Task",
+  "priority": "Undefined",
+  "status": "New",
+  "assignee": null,
   "summary": "Issue summary text",
-  "fix_versions": ["1.3.0 RC"],
-  "url": "https://issues.redhat.com/browse/COO-1145"
+  "fix_versions": [],
+  "url": "https://redhat.atlassian.net/browse/INFERENG-5233"
 }
 ```
 
 **Detailed output (with --fetch-details or --issue):**
 ```json
 {
-  "issue_key": "COO-1145",
-  "issue_type": "Bug",
-  "issue_category": "Bug",
-  "priority": "Blocker",
-  "status": "Verified",
-  "assignee": "Alan Conway",
+  "issue_key": "INFERENG-5233",
+  "issue_type": "Task",
+  "issue_category": "Task",
+  "priority": "Undefined",
+  "status": "New",
+  "assignee": null,
   "summary": "Issue summary text",
   "description": "Full issue description...",
-  "created": "2025-07-30T14:10:21.952+0000",
-  "updated": "2025-08-13T14:57:39.990+0000",
+  "created": "2026-03-16T08:34:09.302+0000",
+  "updated": "2026-03-16T09:03:46.166+0000",
   "comments": [
     {
       "participant": "Participant A",
-      "timestamp": "2025-07-30 15:10",
+      "timestamp": "2026-03-16 08:34",
       "body": "Comment text..."
     }
   ],
   "custom_fields": {
     "release_note_type": "Bug Fix",
-    "fix_versions": ["1.3.0 RC"]
+    "fix_versions": ["3.4"]
   },
   "git_links": [
     "https://github.com/org/repo/pull/123"
   ],
-  "url": "https://issues.redhat.com/browse/COO-1145"
+  "url": "https://redhat.atlassian.net/browse/INFERENG-5233"
+}
+```
+
+**Graph output (with --graph):**
+```json
+{
+  "ticket": "INFERENG-5233",
+  "jira_url": "https://redhat.atlassian.net",
+  "parent": {"key": "INFERENG-5049", "summary": "...", "status": "New", "issuetype": "Epic"},
+  "children": {"total": 0, "showing": 0, "skipped": 0, "issues": []},
+  "siblings": {"total": 0, "showing": 0, "skipped": 0, "issues": []},
+  "issue_links": {"total": 1, "showing": 1, "skipped": 0, "links": [...]},
+  "web_links": {"total": 1, "links": [...]},
+  "auto_discovered_urls": {"pull_requests": [...], "google_docs": []},
+  "errors": []
 }
 ```
 
@@ -139,3 +176,4 @@ The skill respects JIRA API rate limits (2 calls per 5 seconds) to avoid overwhe
 3. **Bug triage**: Get issue details with comments for understanding context
 4. **Release notes**: Extract information needed for documentation
 5. **Link analysis**: Find related Git changes for code review
+6. **Ticket graph**: Map relationships for documentation workflow context

@@ -112,7 +112,7 @@ Proceeding with incorrect or assumed information leads to:
 As you research, maintain a list of all URLs and file paths consulted. Include these references inline with the relevant requirements.
 
 **Types of references to track:**
-- JIRA ticket URLs (e.g., `https://issues.redhat.com/browse/PROJECT-123`)
+- JIRA ticket URLs (e.g., `https://redhat.atlassian.net/browse/PROJECT-123`)
 - GitHub/GitLab PR URLs (e.g., `https://github.com/org/repo/pull/456`)
 - Code file paths (e.g., `src/components/feature.ts:45-67`)
 - Existing documentation paths (e.g., `docs/modules/existing-guide.adoc`)
@@ -133,18 +133,18 @@ Skill: docs-tools:jira-reader, args: "PROJECT-123"
 Skill: docs-tools:jira-reader, args: "--jql 'project = PROJECT AND fixVersion = X.Y.Z'"
 Skill: docs-tools:jira-reader, args: "--jql 'project = PROJECT AND labels = docs-needed'"
 ```
-- Record JIRA URLs for each relevant ticket (e.g., `https://issues.redhat.com/browse/PROJECT-123`)
+- Record JIRA URLs for each relevant ticket (e.g., `https://redhat.atlassian.net/browse/PROJECT-123`)
 - Note specific sections referenced (e.g., "AC-1", "Documentation Considerations")
 
 ### 1.1. JIRA ticket traversal
 
-After fetching the primary ticket with jira-reader, run the JIRA ticket graph traversal script to gather bounded context (1 level deep) from the ticket's relationships:
+After fetching the primary ticket with jira-reader, run the ticket graph traversal to gather bounded context (1 level deep) from the ticket's relationships:
 
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/commands/scripts/jira_ticket_graph.py ${TICKET}
+python ${CLAUDE_PLUGIN_ROOT}/skills/jira-reader/scripts/jira_reader.py --graph ${TICKET}
 ```
 
-The script deterministically discovers custom field IDs, fetches the parent, children, siblings, issue links, and web/remote links, then classifies URLs by type. It uses `JIRA_AUTH_TOKEN` from the environment (with `~/.env` fallback) and `JIRA_URL` (default: `https://issues.redhat.com`).
+The `--graph` flag discovers custom field IDs, fetches the parent, children, siblings, issue links, and web/remote links, then classifies URLs by type. It uses `JIRA_AUTH_TOKEN` and `JIRA_EMAIL` from the environment (with `~/.env` fallback) and `JIRA_URL` (default: `https://redhat.atlassian.net`).
 
 **Using the output:**
 
@@ -337,7 +337,7 @@ Generate a requirements document in markdown:
 ### Critical
 
 #### REQ-001: [Requirement title]
-- **Source**: [JIRA-123](https://issues.redhat.com/browse/JIRA-123) | [PR #456](https://github.com/org/repo/pull/456) | [Spec section](url)
+- **Source**: [JIRA-123](https://redhat.atlassian.net/browse/JIRA-123) | [PR #456](https://github.com/org/repo/pull/456) | [Spec section](url)
 - **Summary**: [What changed and why it matters to users]
 - **User impact**: [How users are affected]
 - **Documentation action**:
@@ -347,7 +347,7 @@ Generate a requirements document in markdown:
   - [ ] [Specific criterion 1]
   - [ ] [Specific criterion 2]
 - **References**:
-  - [JIRA-123 AC-1](https://issues.redhat.com/browse/JIRA-123): Acceptance criterion source
+  - [JIRA-123 AC-1](https://redhat.atlassian.net/browse/JIRA-123): Acceptance criterion source
   - `src/feature.ts:45-67`: Implementation reference
   - [Upstream docs](https://example.com/api): API reference
 
@@ -397,8 +397,8 @@ If a traversal step failed due to a permission error (e.g., 403 on parent), note
 ## Sources consulted
 
 ### JIRA tickets
-- [JIRA-123](https://issues.redhat.com/browse/JIRA-123): [Summary]
-- [JIRA-456](https://issues.redhat.com/browse/JIRA-456): [Summary]
+- [JIRA-123](https://redhat.atlassian.net/browse/JIRA-123): [Summary]
+- [JIRA-456](https://redhat.atlassian.net/browse/JIRA-456): [Summary]
 
 ### Pull requests / Merge requests
 - [PR #789](https://github.com/org/repo/pull/789): [Title]

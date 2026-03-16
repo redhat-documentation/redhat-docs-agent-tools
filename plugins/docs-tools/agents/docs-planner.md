@@ -214,7 +214,7 @@ Run doc impact assessment as the **first analytical step** when multiple issues 
 As you research, maintain a list of all URLs and file paths consulted. Include these references inline with the relevant planning recommendations.
 
 **Types of references to track:**
-- JIRA ticket URLs (e.g., `https://issues.redhat.com/browse/PROJECT-123`)
+- JIRA ticket URLs (e.g., `https://redhat.atlassian.net/browse/PROJECT-123`)
 - GitHub/GitLab PR URLs (e.g., `https://github.com/org/repo/pull/456`)
 - Code file paths (e.g., `src/components/feature.ts:45-67`)
 - Existing documentation paths (e.g., `docs/modules/existing-guide.adoc`)

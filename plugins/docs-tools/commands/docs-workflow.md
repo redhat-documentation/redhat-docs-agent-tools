@@ -905,11 +905,11 @@ If `create_jira_project` is not set in the state, skip this stage entirely and p
 Before creating a new ticket, check if another ticket already "documents" this parent. If it does, skip ticket creation.
 
 ```bash
-JIRA_URL="https://issues.redhat.com"
+JIRA_URL="https://redhat.atlassian.net"
 
 # Fetch parent ticket's issue links
 LINKS_JSON=$(curl -s \
-  -H "Authorization: Bearer ${JIRA_AUTH_TOKEN}" \
+  -u "${JIRA_EMAIL}:${JIRA_AUTH_TOKEN}" \
   -H "Content-Type: application/json" \
   "${JIRA_URL}/rest/api/2/issue/${TICKET}?fields=issuelinks")
 
@@ -942,7 +942,7 @@ If a "Document" link already exists, mark the stage as completed with a note and
 Before attaching the detailed docs plan, determine whether the target project allows anonymous (public) access. Make an unauthenticated curl request to the project endpoint and check the HTTP status code:
 
 ```bash
-JIRA_URL="https://issues.redhat.com"
+JIRA_URL="https://redhat.atlassian.net"
 
 # Check project visibility with an unauthenticated request
 HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
@@ -1072,12 +1072,12 @@ The converted JIRA wiki markup is written to `/tmp/jira_description_wiki.txt` fo
 Use the JIRA REST API to create a new ticket. The `JIRA_AUTH_TOKEN` environment variable is used for authentication (from `~/.env`, already validated in pre-flight).
 
 ```bash
-JIRA_URL="https://issues.redhat.com"
+JIRA_URL="https://redhat.atlassian.net"
 TODAY=$(date +%Y-%m-%d)
 
 # Build the summary from the parent ticket's summary
 PARENT_SUMMARY=$(curl -s \
-  -H "Authorization: Bearer ${JIRA_AUTH_TOKEN}" \
+  -u "${JIRA_EMAIL}:${JIRA_AUTH_TOKEN}" \
   "${JIRA_URL}/rest/api/2/issue/${TICKET}?fields=summary" | jq -r '.fields.summary')
 
 # Build the complete JSON payload using Python to ensure proper escaping.
@@ -1106,7 +1106,7 @@ with open("/tmp/jira_create_payload.json", "w") as f:
 PYEOF
 
 RESPONSE=$(curl -s -X POST \
-  -H "Authorization: Bearer ${JIRA_AUTH_TOKEN}" \
+  -u "${JIRA_EMAIL}:${JIRA_AUTH_TOKEN}" \
   -H "Content-Type: application/json" \
   --data @/tmp/jira_create_payload.json \
   "${JIRA_URL}/rest/api/2/issue")
@@ -1134,7 +1134,7 @@ Create a "Document" link so that the parent ticket "documents" the new docs tick
 # outwardIssue = TICKET (the parent — source, shows "documents")
 # inwardIssue  = NEW_ISSUE_KEY (the docs ticket — destination, shows "is documented by")
 curl -s -X POST \
-  -H "Authorization: Bearer ${JIRA_AUTH_TOKEN}" \
+  -u "${JIRA_EMAIL}:${JIRA_AUTH_TOKEN}" \
   -H "Content-Type: application/json" \
   --data "{
     \"type\": { \"name\": \"Document\" },
@@ -1149,7 +1149,7 @@ echo "Linked ${TICKET} documents ${NEW_ISSUE_KEY}"
 If the "Document" link type name does not match, query available link types to find the correct one:
 
 ```bash
-curl -s -H "Authorization: Bearer ${JIRA_AUTH_TOKEN}" \
+curl -s -u "${JIRA_EMAIL}:${JIRA_AUTH_TOKEN}" \
   "${JIRA_URL}/rest/api/2/issueLinkType" | jq '.issueLinkTypes[] | {name, inward, outward}'
 ```
 
@@ -1165,7 +1165,7 @@ else
 
     if [[ -n "$PLAN_FILE" && -f "$PLAN_FILE" ]]; then
         curl -s -X POST \
-          -H "Authorization: Bearer ${JIRA_AUTH_TOKEN}" \
+          -u "${JIRA_EMAIL}:${JIRA_AUTH_TOKEN}" \
           -H "X-Atlassian-Token: no-check" \
           -F "file=@${PLAN_FILE}" \
           "${JIRA_URL}/rest/api/2/issue/${NEW_ISSUE_KEY}/attachments"

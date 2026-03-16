@@ -3,15 +3,18 @@
 JIRA Reader Script for Claude Code Skill
 
 This script provides read-only access to JIRA issues on Red Hat Issue Tracker.
-It fetches issue details, comments, custom fields, and related Git links.
+It fetches issue details, comments, custom fields, related Git links, and
+traverses the ticket graph (parent, children, siblings, issue links, web links).
 
 Usage:
-    python jira_reader.py --issue COO-1145
-    python jira_reader.py --issue COO-1145 --include-comments
-    python jira_reader.py --jql "project=COO AND fixVersion='1.3.0 RC'"
+    python jira_reader.py --issue INFERENG-5233
+    python jira_reader.py --issue INFERENG-5233 --include-comments
+    python jira_reader.py --jql "project=INFERENG AND fixVersion='3.4'"
+    python jira_reader.py --graph INFERENG-5233
 """
 
 import os
+import re
 import sys
 import json
 import argparse
@@ -26,18 +29,43 @@ except ImportError:
     sys.exit(1)
 
 
+def load_env_file():
+    """Load environment variables from ~/.env file."""
+    env_file = os.path.expanduser("~/.env")
+    if os.path.exists(env_file):
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
+                    os.environ.setdefault(key.strip(), value.strip())
+
+
 class JiraReader:
-    """Read-only JIRA client for fetching and analyzing issues."""
+    """Read-only JIRA client for fetching, analyzing, and traversing issues."""
 
     def __init__(self, server=None):
-        """Initialize JIRA connection with token authentication."""
+        """Initialize JIRA connection with appropriate authentication."""
+        load_env_file()
+
         token = os.environ.get('JIRA_AUTH_TOKEN')
         if not token:
             raise ValueError("JIRA_AUTH_TOKEN environment variable not set. Add it to ~/.env")
 
-        server = server or os.environ.get('JIRA_URL', 'https://issues.redhat.com')
-        self.jira = JIRA(server=server, token_auth=token)
+        server = server or os.environ.get('JIRA_URL', 'https://redhat.atlassian.net')
+
+        if 'atlassian.net' in server:
+            email = os.environ.get('JIRA_EMAIL')
+            if not email:
+                raise ValueError("JIRA_EMAIL environment variable not set. Required for Atlassian Cloud. Add it to ~/.env")
+            self.jira = JIRA(server=server, basic_auth=(email, token))
+        else:
+            self.jira = JIRA(server=server, token_auth=token)
+
         self.server = server
+        self._epic_link_field = None
+        self._parent_link_field = None
+        self._custom_fields_discovered = False
 
     def process_comments(self, comments):
         """
@@ -151,7 +179,7 @@ class JiraReader:
         Fetch comprehensive data for a JIRA issue.
 
         Args:
-            jira_id: JIRA issue key (e.g., "COO-1145")
+            jira_id: JIRA issue key (e.g., "INFERENG-5233")
             include_comments: Whether to fetch and process comments
             git_link_types: Filter for Git links ("github", "gitlab", or "all")
 
@@ -174,9 +202,9 @@ class JiraReader:
             # Extract custom fields
             custom_fields = {}
 
-            # Release Note Type (customfield_12320850)
-            if hasattr(issue.fields, 'customfield_12320850') and issue.fields.customfield_12320850:
-                release_note_type = issue.fields.customfield_12320850.value
+            # Release Note Type (customfield_10785)
+            if hasattr(issue.fields, 'customfield_10785') and issue.fields.customfield_10785:
+                release_note_type = issue.fields.customfield_10785.value
                 # Normalize "Feature" to "Enhancement"
                 release_note_type = "Enhancement" if release_note_type == "Feature" else release_note_type
                 custom_fields['release_note_type'] = release_note_type
@@ -262,6 +290,333 @@ class JiraReader:
         except Exception as e:
             return {"error": f"JQL search failed: {str(e)}"}
 
+    # --- Ticket graph traversal methods ---
+
+    def _discover_custom_fields(self):
+        """Discover custom field IDs for 'Epic Link' and 'Parent Link'."""
+        if self._custom_fields_discovered:
+            return
+
+        try:
+            fields = self.jira.fields()
+            for field in fields:
+                name = field.get("name", "")
+                if name == "Epic Link":
+                    self._epic_link_field = field["id"]
+                elif name == "Parent Link":
+                    self._parent_link_field = field["id"]
+        except Exception:
+            pass
+
+        self._custom_fields_discovered = True
+
+    def _detect_parent(self, issue):
+        """
+        Detect the parent ticket key from an issue.
+
+        Returns:
+            Tuple of (parent_key, source) where source describes how parent was found.
+        """
+        # Check standard parent field
+        if hasattr(issue.fields, 'parent') and issue.fields.parent:
+            return issue.fields.parent.key, "parent_field"
+
+        # Check Parent Link custom field
+        if self._parent_link_field:
+            parent_link = getattr(issue.fields, self._parent_link_field, None)
+            if parent_link:
+                if isinstance(parent_link, str):
+                    return parent_link, "parent_link_custom_field"
+                elif hasattr(parent_link, 'key'):
+                    return parent_link.key, "parent_link_custom_field"
+
+        return None, None
+
+    @sleep_and_retry
+    @limits(calls=2, period=5)
+    def _fetch_issue_summary(self, jira_id):
+        """Fetch basic summary fields for an issue."""
+        try:
+            issue = self.jira.issue(jira_id, fields="summary,status,issuetype,description,priority,assignee")
+            fields = issue.fields
+            return {
+                "key": issue.key,
+                "summary": fields.summary,
+                "status": str(fields.status) if fields.status else None,
+                "issuetype": str(fields.issuetype) if fields.issuetype else None,
+                "priority": str(fields.priority) if fields.priority else None,
+                "assignee": fields.assignee.displayName if fields.assignee and hasattr(fields.assignee, 'displayName') else None,
+                "description": fields.description or "",
+            }
+        except Exception as e:
+            if "403" in str(e) or "Forbidden" in str(e):
+                return {
+                    "key": jira_id,
+                    "summary": None,
+                    "status": None,
+                    "issuetype": None,
+                    "error": "exists but not accessible (HTTP 403)",
+                }
+            return {"key": jira_id, "error": str(e)}
+
+    def _fetch_children(self, ticket_key, max_children=25):
+        """
+        Fetch children via parent = KEY and "Epic Link" = KEY JQL queries.
+
+        Returns:
+            Dictionary with total, showing, skipped, and issues list.
+        """
+        errors = []
+        seen_keys = set()
+        issues = []
+
+        # Query 1: Standard parent field
+        jql1 = f"parent = {ticket_key} ORDER BY status ASC, key ASC"
+        try:
+            results = self.jira.search_issues(jql1, maxResults=max_children)
+            for issue in results:
+                if issue.key not in seen_keys:
+                    seen_keys.add(issue.key)
+                    f = issue.fields
+                    issues.append({
+                        "key": issue.key,
+                        "summary": f.summary,
+                        "status": str(f.status) if f.status else None,
+                        "issuetype": str(f.issuetype) if f.issuetype else None,
+                        "priority": str(f.priority) if f.priority else None,
+                        "assignee": f.assignee.displayName if f.assignee and hasattr(f.assignee, 'displayName') else None,
+                    })
+        except Exception as e:
+            errors.append(f"Children query (parent field): {e}")
+
+        # Query 2: Epic Link custom field
+        if self._epic_link_field:
+            jql2 = f'"Epic Link" = {ticket_key} ORDER BY status ASC, key ASC'
+            try:
+                results = self.jira.search_issues(jql2, maxResults=max_children)
+                for issue in results:
+                    if issue.key not in seen_keys:
+                        seen_keys.add(issue.key)
+                        f = issue.fields
+                        issues.append({
+                            "key": issue.key,
+                            "summary": f.summary,
+                            "status": str(f.status) if f.status else None,
+                            "issuetype": str(f.issuetype) if f.issuetype else None,
+                            "priority": str(f.priority) if f.priority else None,
+                            "assignee": f.assignee.displayName if f.assignee and hasattr(f.assignee, 'displayName') else None,
+                        })
+            except Exception as e:
+                errors.append(f"Children query (Epic Link): {e}")
+
+        showing = min(len(issues), max_children)
+        issues = issues[:max_children]
+
+        return {
+            "total": len(seen_keys),
+            "showing": showing,
+            "skipped": max(0, len(seen_keys) - showing),
+            "issues": issues,
+        }, errors
+
+    def _fetch_siblings(self, ticket_key, parent_key, parent_source, max_siblings=25):
+        """
+        Fetch sibling tickets (active statuses only).
+
+        Returns:
+            Dictionary with total, showing, skipped, and issues list.
+        """
+        errors = []
+
+        if parent_source == "parent_link_custom_field":
+            parent_clause = f'"Parent Link" = {parent_key}'
+        else:
+            parent_clause = f"parent = {parent_key}"
+
+        active_statuses = 'Done, "In Progress", "In Review", "Code Review"'
+        jql = (
+            f'{parent_clause} AND key != {ticket_key} '
+            f'AND status in ({active_statuses}) '
+            f'ORDER BY status DESC, updated DESC'
+        )
+
+        try:
+            results = self.jira.search_issues(jql, maxResults=max_siblings)
+            issues = []
+            for issue in results:
+                f = issue.fields
+                issues.append({
+                    "key": issue.key,
+                    "summary": f.summary,
+                    "status": str(f.status) if f.status else None,
+                    "issuetype": str(f.issuetype) if f.issuetype else None,
+                })
+
+            total = results.total if hasattr(results, 'total') else len(issues)
+            showing = len(issues)
+            return {
+                "total": total,
+                "showing": showing,
+                "skipped": max(0, total - showing),
+                "issues": issues,
+            }, errors
+        except Exception as e:
+            errors.append(f"Siblings query: {e}")
+            return {"total": 0, "showing": 0, "skipped": 0, "issues": []}, errors
+
+    def _extract_issue_links(self, issue, max_links=15):
+        """
+        Extract issue link summaries from an issue object.
+
+        No additional API calls needed — data is embedded in the issuelinks field.
+        """
+        raw_links = issue.fields.issuelinks if hasattr(issue.fields, 'issuelinks') else []
+        links = []
+
+        for link in raw_links:
+            link_type = link.type
+
+            if hasattr(link, 'inwardIssue') and link.inwardIssue:
+                linked_issue = link.inwardIssue
+                direction = link_type.inward
+            elif hasattr(link, 'outwardIssue') and link.outwardIssue:
+                linked_issue = link.outwardIssue
+                direction = link_type.outward
+            else:
+                continue
+
+            links.append({
+                "key": linked_issue.key,
+                "direction": direction,
+                "link_type": link_type.name,
+                "summary": linked_issue.fields.summary if hasattr(linked_issue.fields, 'summary') else None,
+                "status": str(linked_issue.fields.status) if hasattr(linked_issue.fields, 'status') and linked_issue.fields.status else None,
+                "issuetype": str(linked_issue.fields.issuetype) if hasattr(linked_issue.fields, 'issuetype') and linked_issue.fields.issuetype else None,
+            })
+
+            if len(links) >= max_links:
+                break
+
+        total = len(raw_links)
+        showing = len(links)
+        return {
+            "total": total,
+            "showing": showing,
+            "skipped": max(0, total - showing),
+            "links": links,
+        }
+
+    def _classify_url(self, url):
+        """Classify a URL as 'pull_request', 'google_doc', or 'other'."""
+        if re.search(r"github\.com/.+/pull/\d+", url):
+            return "pull_request"
+        if re.search(r"gitlab\..+/-/merge_requests/\d+", url):
+            return "pull_request"
+        if re.search(r"docs\.google\.com/document/", url):
+            return "google_doc"
+        return "other"
+
+    def _fetch_remote_links(self, ticket_key):
+        """
+        Fetch remote/web links from the ticket and classify URLs.
+
+        Returns:
+            Tuple of (web_links_dict, auto_discovered_urls_dict, errors).
+        """
+        errors = []
+        try:
+            remote_links = self.jira.remote_links(ticket_key)
+        except Exception as e:
+            errors.append(f"Remote links: {e}")
+            return {"total": 0, "links": []}, {"pull_requests": [], "google_docs": []}, errors
+
+        links = []
+        pull_requests = []
+        google_docs = []
+
+        for item in remote_links:
+            try:
+                link_url = item.object.url if hasattr(item.object, 'url') else ""
+                title = item.object.title if hasattr(item.object, 'title') else ""
+                link_type = self._classify_url(link_url)
+                links.append({"title": title, "url": link_url, "type": link_type})
+                if link_type == "pull_request":
+                    pull_requests.append(link_url)
+                elif link_type == "google_doc":
+                    google_docs.append(link_url)
+            except Exception:
+                continue
+
+        web_links = {"total": len(links), "links": links}
+        auto_discovered = {"pull_requests": pull_requests, "google_docs": google_docs}
+        return web_links, auto_discovered, errors
+
+    def get_ticket_graph(self, ticket_key, max_children=25, max_siblings=25, max_links=15):
+        """
+        Traverse the JIRA ticket graph: parent, children, siblings, issue links, web links.
+
+        All traversal is bounded to 1 level deep from the primary ticket.
+
+        Args:
+            ticket_key: JIRA issue key (e.g., "INFERENG-5233")
+            max_children: Maximum children to fetch
+            max_siblings: Maximum siblings to fetch
+            max_links: Maximum issue links to extract
+
+        Returns:
+            Dictionary with full graph traversal results
+        """
+        all_errors = []
+
+        # Step 1: Discover custom fields
+        self._discover_custom_fields()
+
+        # Step 2: Fetch primary ticket
+        try:
+            issue = self.jira.issue(ticket_key)
+        except Exception as e:
+            return {"ticket": ticket_key, "error": f"Failed to fetch primary ticket: {e}"}
+
+        # Step 3: Detect parent
+        parent_key, parent_source = self._detect_parent(issue)
+        parent_info = None
+
+        if parent_key:
+            parent_info = self._fetch_issue_summary(parent_key)
+            if parent_info and "error" not in parent_info:
+                parent_info["source"] = parent_source
+            elif parent_info:
+                parent_info["source"] = parent_source
+
+        # Step 4: Fetch children
+        children, errors = self._fetch_children(ticket_key, max_children)
+        all_errors.extend(errors)
+
+        # Step 5: Fetch siblings (only if parent exists)
+        siblings = {"total": 0, "showing": 0, "skipped": 0, "issues": []}
+        if parent_key and parent_source:
+            siblings, errors = self._fetch_siblings(ticket_key, parent_key, parent_source, max_siblings)
+            all_errors.extend(errors)
+
+        # Step 6: Extract issue links (no extra API calls)
+        issue_links = self._extract_issue_links(issue, max_links)
+
+        # Step 7: Fetch remote/web links and classify URLs
+        web_links, auto_discovered, errors = self._fetch_remote_links(ticket_key)
+        all_errors.extend(errors)
+
+        return {
+            "ticket": ticket_key,
+            "jira_url": self.server,
+            "parent": parent_info,
+            "children": children,
+            "siblings": siblings,
+            "issue_links": issue_links,
+            "web_links": web_links,
+            "auto_discovered_urls": auto_discovered,
+            "errors": all_errors,
+        }
+
 
 def main():
     """Main entry point for the script."""
@@ -271,11 +626,15 @@ def main():
     parser.add_argument(
         '--issue',
         action='append',
-        help='JIRA issue key (e.g., COO-1145). Can be specified multiple times.'
+        help='JIRA issue key (e.g., INFERENG-5233). Can be specified multiple times.'
     )
     parser.add_argument(
         '--jql',
         help='JQL query to search for issues'
+    )
+    parser.add_argument(
+        '--graph',
+        help='Traverse the ticket graph for a JIRA issue key (parent, children, siblings, links)'
     )
     parser.add_argument(
         '--include-comments',
@@ -299,15 +658,46 @@ def main():
         action='store_true',
         help='Fetch full details for each issue (slow). By default, JQL searches return fast summaries only.'
     )
+    parser.add_argument(
+        '--max-children',
+        type=int,
+        default=25,
+        help='Maximum children to fetch in graph mode (default: 25)'
+    )
+    parser.add_argument(
+        '--max-siblings',
+        type=int,
+        default=25,
+        help='Maximum siblings to fetch in graph mode (default: 25)'
+    )
+    parser.add_argument(
+        '--max-links',
+        type=int,
+        default=15,
+        help='Maximum issue links to extract in graph mode (default: 15)'
+    )
 
     args = parser.parse_args()
 
     # Validate arguments
-    if not args.issue and not args.jql:
-        parser.error("Must specify either --issue or --jql")
+    if not args.issue and not args.jql and not args.graph:
+        parser.error("Must specify --issue, --jql, or --graph")
 
     try:
         reader = JiraReader()
+
+        # Handle graph traversal
+        if args.graph:
+            result = reader.get_ticket_graph(
+                args.graph,
+                max_children=args.max_children,
+                max_siblings=args.max_siblings,
+                max_links=args.max_links,
+            )
+            print(json.dumps(result, indent=2))
+            if result.get("error"):
+                sys.exit(1)
+            return
 
         results = []
 
