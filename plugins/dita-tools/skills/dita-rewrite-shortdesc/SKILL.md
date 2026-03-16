@@ -1,7 +1,6 @@
 ---
 name: dita-rewrite-shortdesc
 description: Rewrite or improve short descriptions in AsciiDoc files for better clarity and DITA compliance. Use this skill when asked to fix short descriptions, improve abstracts, rewrite summaries, or make short descriptions more effective.
-model: claude-sonnet-4-20250514
 allowed-tools: Read, Edit, Glob, Grep
 ---
 

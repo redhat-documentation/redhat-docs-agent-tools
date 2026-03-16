@@ -1,7 +1,7 @@
 ---
 description: Run the DITA rework workflow to prepare AsciiDoc files for DITA conversion
 argument-hint: <file.adoc|assembly.adoc> [--rewrite [--no-commit] [--dry-run] [--branch <name>]] [--review]
-allowed-tools: Read, Write, Glob, Grep, Edit, Bash, TodoWrite
+allowed-tools: Read, Write, Glob, Grep, Edit, Bash, Task
 ---
 
 ## Name

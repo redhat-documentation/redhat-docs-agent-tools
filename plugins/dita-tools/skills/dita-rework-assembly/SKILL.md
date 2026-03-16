@@ -1,8 +1,7 @@
 ---
 name: dita-rework-assembly
 description: Extract inline content from AsciiDoc assembly files into separate modules. Use when refactoring assemblies to follow Red Hat modular documentation standards — moving introductory preambles, inline procedures, inline concepts, admonitions, or any other content into reusable modules.
-model: claude-opus-4-5@20251101
-allowed-tools: Read, Edit, Write, Glob, Grep, Bash, TodoWrite
+allowed-tools: Read, Edit, Write, Glob, Grep, Bash, Task
 ---
 
 # Extract content from assemblies into modules

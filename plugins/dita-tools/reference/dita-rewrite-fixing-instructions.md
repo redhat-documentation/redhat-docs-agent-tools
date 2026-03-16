@@ -644,10 +644,10 @@ To calculate the correct path:
 ### CalloutList
 
 **AI action plan**
-1. **For value callouts**: Replace callout markers (e.g., `<1>`) with user-replaceable placeholders (`<value>`), then convert callout list to description list
-2. **For code section callouts**: Remove callouts and convert to bulleted list explaining each section
+1. **For value callouts**: Replace callout markers (e.g., `<1>`) with user-replaceable placeholders (`<value>`), then convert callout list to a bulleted list explaining each value
+2. **For code section callouts**: Remove callouts and convert to a bulleted list explaining each section
 
-**Example - Value callouts to description list (multi-line):**
+**Example - Value callouts to bullet list (multi-line):**
 
 Before:
 ```asciidoc
@@ -665,16 +665,14 @@ After:
 name: <my_secret>
 data: <secret_data>
 ----
-
-where:
-
-`<my_secret>`:: Specifies the secret name.
-`<secret_data>`:: Specifies the secret data.
++
+--
+* `<my_secret>` specifies the secret name.
+* `<secret_data>` specifies the secret data.
+--
 ```
 
-**Example - Value callouts to description list (single-line command):**
-
-For single-line commands, only use the replacement value as the description list term, not the entire command line:
+**Example - Value callouts to bullet list (single-line command):**
 
 Before:
 ```asciidoc
@@ -689,16 +687,18 @@ After:
 ----
 $ oc delete -f <file_name> -n <cluster_namespace>
 ----
-
-where:
-
-`<cluster_namespace>`:: Specifies the namespace of the cluster on which LVMS is installed.
++
+--
+* `<cluster_namespace>` specifies the namespace of the cluster on which LVMS is installed.
+--
 ```
 
-**Do NOT** use the full command as the description list term:
+For single-line commands, select the most salient user-replaceable angle bracket term (e.g., `<cluster_namespace>`) as the bullet list term — not the entire command line.
+
+**Do NOT** use the full command as the bullet list term:
 ```asciidoc
 // WRONG:
-`$ oc delete -f <file_name> -n <cluster_namespace>`:: Namespace of the cluster...
+* `$ oc delete -f <file_name> -n <cluster_namespace>` specifies the namespace of the cluster...
 ```
 
 ---

@@ -1,7 +1,6 @@
 ---
 name: dita-asciidoc-rewrite
 description: Refactor AsciiDoc files for DITA conversion compatibility using LLM-guided analysis. Use this skill to fix Vale issues, prepare files for DITA conversion, or comprehensively rewrite AsciiDoc modules and assemblies following Red Hat modular documentation standards.
-model: claude-opus-4-5@20251101
 allowed-tools:
   - Read
   - Write
