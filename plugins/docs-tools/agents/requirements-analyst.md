@@ -448,22 +448,22 @@ Skill: docs-tools:jira-reader, args: "--jql 'project=PROJ AND updated >= -2w'"
 Skill: docs-tools:jira-reader, args: "--jql 'project=PROJ AND fixVersion=1.0.0' --fetch-details"
 ```
 
-### Querying GitHub/GitLab with docs-tools:git-pr-reader
+### Querying GitHub/GitLab PRs
 
-Use the `docs-tools:git-pr-reader` skill for both GitHub PRs and GitLab MRs:
+Use the git PR reader script for both GitHub PRs and GitLab MRs:
 
 ```
 # View PR/MR details as JSON
-Skill: docs-tools:git-pr-reader, args: "info <pr-url> --json"
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py info <pr-url> --json
 
 # List changed files with stats
-Skill: docs-tools:git-pr-reader, args: "files <pr-url> --json"
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py files <pr-url> --json
 
 # View PR/MR diff
-Skill: docs-tools:git-pr-reader, args: "diff <pr-url>"
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py diff <pr-url>
 
 # Get review comments
-Skill: docs-tools:git-pr-reader, args: "comments <pr-url> --json"
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py comments <pr-url> --json
 ```
 
 Requires tokens in `~/.env`:

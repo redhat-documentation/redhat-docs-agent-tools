@@ -149,7 +149,7 @@ Launch a haiku agent to return:
 
 ```bash
 # Or use the Git Review API
-python ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py files "${PR_URL}" --json | \
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py files "${PR_URL}" --json | \
     python3 -c "import json,sys; files=[f['path'] for f in json.load(sys.stdin) if f['path'].endswith(('.adoc','.md'))]; print('\n'.join(files))" > /tmp/docs-review-doc-files.txt
 
 DOC_FILES=$(wc -l < /tmp/docs-review-doc-files.txt)
@@ -176,7 +176,7 @@ Launch a sonnet agent to view the changes and return a summary noting:
 
 For `--pr` mode, use:
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py diff "${PR_URL}" > /tmp/pr-diff.txt
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py diff "${PR_URL}" > /tmp/pr-diff.txt
 ```
 
 For `--local` mode, use:
@@ -194,7 +194,7 @@ Launch 4 agents in parallel to independently review the documentation changes. E
 - `confidence`: 0-100 score of how certain the agent is this is a real issue
 - `severity`: error, warning, or suggestion
 
-For `--pr` mode, use `python ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py extract` for deterministic line numbers from the diff.
+For `--pr` mode, use `python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py extract` for deterministic line numbers from the diff.
 
 The 4 agents are defined below. Each uses a dedicated `subagent_type` that loads the agent's instructions and enforces its declared tool restrictions automatically.
 
@@ -339,7 +339,7 @@ First, get deterministic line numbers for each issue:
 
 ```bash
 # Get the exact line number from the PR diff
-LINE=$(python ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py extract "${PR_URL}" "path/to/file.adoc" "pattern from the issue")
+LINE=$(python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py extract "${PR_URL}" "path/to/file.adoc" "pattern from the issue")
 ```
 
 Build the comments JSON file:
@@ -356,7 +356,7 @@ EOF
 Post the comments:
 
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py post "${PR_URL}" /tmp/docs-review-comments.json
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py post "${PR_URL}" /tmp/docs-review-comments.json
 ```
 
 For each comment:
@@ -407,7 +407,7 @@ PR_URL="${1}"
 if [ -z "$PR_URL" ]; then
     # Auto-detect PR/MR for current branch (supports both GitHub and GitLab)
     echo "No URL provided. Detecting PR/MR for current branch..."
-    PR_URL=$(python ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py detect 2>/dev/null)
+    PR_URL=$(python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py detect 2>/dev/null)
 
     if [ -z "$PR_URL" ]; then
         echo "ERROR: No open PR/MR found for the current branch."
@@ -426,13 +426,13 @@ fi
 
 ```bash
 # Get review comments (bot comments and resolved threads are filtered automatically)
-python ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py comments "${PR_URL}" --json
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py comments "${PR_URL}" --json
 
 # Or get human-readable output
-python ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py comments "${PR_URL}"
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py comments "${PR_URL}"
 
 # Include resolved comments if needed
-python ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py comments "${PR_URL}" --include-resolved --json
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py comments "${PR_URL}" --include-resolved --json
 ```
 
 ### Step 3: Comment Filtering
@@ -492,7 +492,7 @@ When the user approves a change:
 Before posting response comments, validate line numbers against the actual diff:
 
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py extract --validate \
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py extract --validate \
     "$PR_URL" /tmp/response-comments.json
 ```
 
@@ -502,11 +502,11 @@ If needed, post response comments using the Python API:
 
 ```bash
 # Post response comments
-python ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py post \
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py post \
     "$PR_URL" /tmp/response-comments.json
 
 # Or dry-run first
-python ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py post \
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py post \
     "$PR_URL" /tmp/response-comments.json --dry-run
 ```
 
@@ -807,5 +807,5 @@ Action comments on a specific GitLab MR:
 - Duplicate comments are automatically skipped
 - **CRITICAL: Always use `git_pr_reader.py extract` for deterministic line numbers** — never estimate or guess line numbers
 - Always use Bash with heredoc/cat for writing /tmp files (not the Write tool)
-- Use `python ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py` for all Git platform interactions, including `detect` for auto-detecting the PR/MR URL from the current branch.
+- Use `python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py` for all Git platform interactions, including `detect` for auto-detecting the PR/MR URL from the current branch.
 - Cite the specific style guide rule or review skill for each issue (e.g., "RedHat.TermsErrors", "IBM Style Guide: Capitalization", "modular-docs: missing content type").
