@@ -10,7 +10,7 @@
 The `docs-workflow` command works but its orchestration logic is hardcoded — the dispatch table, stage ordering, conditional logic, and iteration rules are all embedded in markdown instructions. This means:
 
 - **Every team gets the same pipeline** — no way to add, remove, or reorder stages without forking the orchestrator
-- **New workflows require new orchestrator skills** — a localization workflow, a review-only workflow, or a simplified onboarding workflow each need their own hardcoded orchestrator
+- **New workflows require new orchestrator skills** — a review-only workflow or a simplified onboarding workflow each need their own hardcoded orchestrator
 - **Orchestration logic is not testable** — it lives in natural-language instructions, not structured data
 
 ## Solution
@@ -754,52 +754,6 @@ workflow:
 
 ```
 Skill: docs-tools:docs-orchestrator, args: "start review-only ./modules --mkdocs"
-```
-
-### Localization workflow (custom stages)
-
-```yaml
-workflow:
-  name: localization
-  description: Prepare docs for translation
-
-  params:
-    ticket:
-      type: string
-      required: true
-    source_lang:
-      type: string
-      default: en
-    target_langs:
-      type: list
-      default: [ja, ko, zh]
-      flag: --lang
-      accumulate: true
-
-  output_base: .claude/docs
-
-  steps:
-    - name: extract-strings
-      skill: l10n-tools:extract-translatable
-      description: Extract translatable strings
-      output: l10n/{ticket|safe}/strings_{timestamp}.xliff
-      args: "{ticket} --lang {source_lang} --output {output}"
-
-    - name: terminology-check
-      skill: l10n-tools:terminology-review
-      description: Check terminology consistency
-      output: l10n/{ticket|safe}/terminology_report.md
-      args: "--input {steps.extract-strings.output} --output {output}"
-
-    - name: prepare-handoff
-      skill: l10n-tools:translation-handoff
-      description: Package for translation vendor
-      output: l10n/{ticket|safe}/handoff_{timestamp}.zip
-      args: "--input {steps.extract-strings.output} --langs {target_langs|join:,} --output {output}"
-      confirm:
-        prompt: "Ready to create the translation handoff package for {target_langs|join:, }?"
-        show_file: "{steps.terminology-check.output}"
-        on_decline: complete
 ```
 
 ## YAML Validation
