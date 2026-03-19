@@ -3,7 +3,7 @@
 **Date**: 2026-03-19
 **Status**: Draft
 **Scope**: `plugins/docs-tools/`
-**Related**: `specs/2026-03-18-docs-workflow-decomposition-design.md` (step skill decomposition)
+**Prerequisites**: `jq` (JSON processor) must be installed for hook scripts
 
 ## Problem
 
@@ -18,7 +18,7 @@ The `docs-workflow` command (`commands/docs-workflow.md`) is a ~1300-line monoli
 
 Decompose the monolith into **step skills** orchestrated by Claude's intelligence, with **hooks** as guardrails. Three components:
 
-1. **A workflow skill** (~100 lines) that teaches Claude the standard pipeline and conventions
+1. **A workflow skill** that teaches Claude the standard pipeline and conventions
 2. **A Stop hook** that validates workflow completion by checking progress state and file contents
 3. **Step skills** that each own one stage of the pipeline
 
@@ -49,8 +49,8 @@ docs-orchestrator skill                 ← Teaches Claude the pipeline
 Stop hook                              ← Validates: is the workflow complete?
      |
      +-- Checks progress.json          ← Status, output paths, content verification
-     +-- {ok: true}  → Claude stops
-     +-- {ok: false, reason: "..."}  → Claude continues
+     +-- exit 0                       → Claude stops
+     +-- exit 2 + stderr reason       → Claude continues
 ```
 
 The orchestrator is Claude itself. The skill is a checklist. The hook is a safety net.
@@ -62,9 +62,9 @@ The orchestrator is Claude itself. The skill is a checklist. The hook is a safet
 ```
 plugins/docs-tools/skills/
   docs-orchestrator/
-    docs-orchestrator.md                      # Workflow skill (~100 lines)
+    docs-orchestrator.md                      # Workflow skill
     hooks/
-      workflow-completion-check.sh            # Stop hook script (~80 lines)
+      workflow-completion-check.sh            # Stop hook script
     scripts/
       setup-hooks.sh                          # Hook installation helper
 ```
@@ -630,25 +630,34 @@ The Stop hook fires every time Claude finishes responding. When a documentation 
 # 2. Output file existence (do declared outputs actually exist?)
 # 3. Content verification (did tech review reach acceptable confidence?)
 #
+# Exit codes:
+#   0 = allow Claude to stop (no output)
+#   2 = block stop, reason on stderr (Claude receives stderr as feedback)
+#
 # Input (stdin): JSON with session context including stop_hook_active flag
-# Output (stdout): JSON {ok: true/false, reason: "..."}
+#
+# Requires: jq
 
 INPUT=$(cat)
+
+# Ensure we're in the project root for relative path checks
+cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null
 
 # Prevent infinite loops — if this hook already triggered a continuation, allow stop
 STOP_HOOK_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false')
 if [ "$STOP_HOOK_ACTIVE" = "true" ]; then
-  echo '{"ok": true}'
   exit 0
 fi
 
 # Find progress files
 PROGRESS_FILES=$(ls .claude/docs/workflow/*.json 2>/dev/null)
 if [ -z "$PROGRESS_FILES" ]; then
-  # No workflow in progress — allow stop
-  echo '{"ok": true}'
   exit 0
 fi
+
+# Canonical step order — used to find the correct "next" step since
+# JSON object key order is not guaranteed
+STEP_ORDER=(requirements planning writing technical-review style-review integration create-jira)
 
 # Check each progress file for incomplete workflows
 for pfile in $PROGRESS_FILES; do
@@ -660,47 +669,50 @@ for pfile in $PROGRESS_FILES; do
 
   TICKET=$(jq -r '.ticket' "$pfile")
 
-  # Find first non-completed, non-skipped step
-  NEXT_STEP=$(jq -r '
-    .steps | to_entries[]
-    | select(.value.status != "completed" and .value.status != "skipped")
-    | .key' "$pfile" | head -1)
+  # Find first non-completed, non-skipped step in canonical order
+  NEXT_STEP=""
+  for step in "${STEP_ORDER[@]}"; do
+    STEP_STATUS=$(jq -r ".steps[\"$step\"].status // \"missing\"" "$pfile")
+    if [ "$STEP_STATUS" != "completed" ] && [ "$STEP_STATUS" != "skipped" ] && [ "$STEP_STATUS" != "missing" ]; then
+      NEXT_STEP="$step"
+      break
+    fi
+  done
 
   if [ -z "$NEXT_STEP" ]; then
-    # All steps done but status not updated — allow stop, Claude will update it
+    # All steps done but workflow status not updated — allow stop, Claude will update it
     continue
   fi
 
   # Content verification: check tech review confidence
-  if [ "$NEXT_STEP" = "style-review" ] || [ "$NEXT_STEP" = "integration" ] || [ "$NEXT_STEP" = "create-jira" ]; then
-    # Tech review should be done by now — verify confidence
-    TECH_STATUS=$(jq -r '.steps["technical-review"].status' "$pfile")
-    if [ "$TECH_STATUS" = "completed" ]; then
-      CONFIDENCE=$(jq -r '.steps["technical-review"].confidence // "null"' "$pfile")
-      ITERATIONS=$(jq -r '.steps["technical-review"].iterations // 0' "$pfile")
+  # Only check when we've moved past tech review (next step is after it in the order)
+  TECH_STATUS=$(jq -r '.steps["technical-review"].status // "pending"' "$pfile")
+  if [ "$TECH_STATUS" = "completed" ]; then
+    CONFIDENCE=$(jq -r '.steps["technical-review"].confidence // "null"' "$pfile")
+    ITERATIONS=$(jq -r '.steps["technical-review"].iterations // 0' "$pfile")
 
-      if [ "$CONFIDENCE" != "HIGH" ] && [ "$CONFIDENCE" != "MEDIUM" ] && [ "$ITERATIONS" -lt 3 ]; then
-        echo "{\"ok\": false, \"reason\": \"Documentation workflow for $TICKET: technical review completed with confidence '$CONFIDENCE' after $ITERATIONS iterations. Run additional review iterations (max 3) to reach MEDIUM or higher confidence.\"}"
-        exit 0
-      fi
+    if [ "$CONFIDENCE" != "HIGH" ] && [ "$CONFIDENCE" != "MEDIUM" ] && [ "$ITERATIONS" -lt 3 ]; then
+      echo "Documentation workflow for $TICKET: technical review completed with confidence '$CONFIDENCE' after $ITERATIONS iterations. Run additional review iterations (max 3) to reach MEDIUM or higher confidence." >&2
+      exit 2
     fi
   fi
 
-  # Check if declared output files actually exist
-  STEP_OUTPUT=$(jq -r ".steps[\"$NEXT_STEP\"].output // \"null\"" "$pfile")
-  STEP_STATUS=$(jq -r ".steps[\"$NEXT_STEP\"].status" "$pfile")
+  # Check if any completed step's declared output file is missing from disk
+  for step in "${STEP_ORDER[@]}"; do
+    S_STATUS=$(jq -r ".steps[\"$step\"].status // \"missing\"" "$pfile")
+    S_OUTPUT=$(jq -r ".steps[\"$step\"].output // \"null\"" "$pfile")
 
-  if [ "$STEP_STATUS" = "completed" ] && [ "$STEP_OUTPUT" != "null" ] && [ ! -f "$STEP_OUTPUT" ]; then
-    echo "{\"ok\": false, \"reason\": \"Documentation workflow for $TICKET: step '$NEXT_STEP' is marked completed but output file $STEP_OUTPUT does not exist. Re-run the step.\"}"
-    exit 0
-  fi
+    if [ "$S_STATUS" = "completed" ] && [ "$S_OUTPUT" != "null" ] && [ ! -f "$S_OUTPUT" ]; then
+      echo "Documentation workflow for $TICKET: step '$step' is marked completed but output file $S_OUTPUT does not exist. Re-run the step." >&2
+      exit 2
+    fi
+  done
 
-  echo "{\"ok\": false, \"reason\": \"Documentation workflow for $TICKET is not complete. Next step: $NEXT_STEP. Continue the workflow.\"}"
-  exit 0
+  echo "Documentation workflow for $TICKET is not complete. Next step: $NEXT_STEP. Continue the workflow." >&2
+  exit 2
 done
 
 # All workflows complete or no incomplete steps found
-echo '{"ok": true}'
 exit 0
 ```
 
@@ -726,16 +738,26 @@ The hook is registered in `.claude/settings.json`. The `setup-hooks.sh` script (
 }
 ```
 
+### Exit code semantics
+
+For `type: "command"` Stop hooks, Claude Code uses exit codes to determine behavior:
+
+- **Exit 0**: Allow Claude to stop. Stdout is ignored.
+- **Exit 2**: Block the stop. Stderr is fed back to Claude as feedback, which Claude uses as its next instruction.
+- **Other exit codes**: Allow Claude to stop. Stderr is logged but not shown to Claude.
+
+The hook writes reasons to **stderr** (not stdout) and exits with code **2** to block stops. This is distinct from `type: "prompt"` and `type: "agent"` hooks, which use `{ok: false, reason: "..."}` JSON on stdout.
+
 ### Stop hook behavior
 
-| Scenario | Hook response | Effect |
-|---|---|---|
-| No progress file exists | `{ok: true}` | Claude stops normally |
-| Progress file status: completed | `{ok: true}` | Claude stops normally |
-| Progress file status: in_progress, steps remain | `{ok: false, reason: "Next step: ..."}` | Claude continues with the reason as instruction |
-| Tech review completed with LOW confidence, < 3 iterations | `{ok: false, reason: "Run additional iterations..."}` | Claude runs more tech review cycles |
-| Step marked completed but output file missing | `{ok: false, reason: "Re-run the step"}` | Claude re-runs the step |
-| `stop_hook_active` is true | `{ok: true}` | Prevents infinite loop — Claude stops |
+| Scenario | Exit code | Stderr | Effect |
+|---|---|---|---|
+| No progress file exists | 0 | (none) | Claude stops normally |
+| Progress file status: completed | 0 | (none) | Claude stops normally |
+| Progress file status: in_progress, steps remain | 2 | "Next step: ..." | Claude continues with the reason as instruction |
+| Tech review completed with LOW confidence, < 3 iterations | 2 | "Run additional iterations..." | Claude runs more tech review cycles |
+| Step marked completed but output file missing | 2 | "Re-run the step" | Claude re-runs the step |
+| `stop_hook_active` is true | 0 | (none) | Prevents infinite loop — Claude stops |
 
 ### Content verification
 
@@ -743,11 +765,17 @@ The Stop hook verifies file contents, not just file existence:
 
 1. **Tech review confidence** — After the tech review step, the hook checks the `confidence` and `iterations` fields in the progress file. If confidence is below MEDIUM and iterations are under 3, the hook tells Claude to run more iterations. MEDIUM is acceptable after 3 iterations (exhausted budget). HIGH is always acceptable.
 
-2. **Output file existence** — If a step is marked "completed" in the progress file but the declared output file doesn't exist on disk, the hook tells Claude to re-run the step. This catches cases where a file was written but later deleted, or where the skill reported success but didn't actually write the file.
+2. **Output file existence** — For every completed step, the hook checks that the declared output file actually exists on disk. If not, it tells Claude to re-run the step. This catches cases where a file was written but later deleted, or where the skill reported success but didn't actually write the file. The hook uses `cd "$CLAUDE_PROJECT_DIR"` to ensure relative paths in the progress file resolve correctly.
+
+### Step ordering
+
+The hook uses a hardcoded canonical step order (`requirements → planning → writing → technical-review → style-review → integration → create-jira`) to determine the "next" incomplete step. This is necessary because JSON object key ordering is not guaranteed — iterating `.steps | to_entries[]` with `jq` could return steps in any order.
+
+For custom workflow types with different step names, the hook falls back to `jq`'s key iteration order. Teams with custom workflows should either extend the `STEP_ORDER` array in their copy of the hook script, or use an agent-based hook instead (which can read the skill's step list and reason about ordering).
 
 ### Infinite loop prevention
 
-The `stop_hook_active` field is critical. When a Stop hook returns `{ok: false}`, Claude continues working. When Claude finishes that continuation and tries to stop again, the next Stop event includes `stop_hook_active: true`. The hook MUST check this field and return `{ok: true}` to allow Claude to stop.
+The `stop_hook_active` field is critical. When a Stop hook returns exit 2 (block), Claude continues working. When Claude finishes that continuation and tries to stop again, the next Stop event includes `stop_hook_active: true`. The hook MUST check this field and exit 0 to allow Claude to stop.
 
 This means the hook gets **one chance** per stop attempt to redirect Claude. If Claude stops again after the redirect, the hook allows it. This prevents infinite loops where the hook keeps saying "not done" forever.
 
@@ -806,7 +834,7 @@ fi
 
 # Check if compaction hook already exists
 EXISTING_COMPACT=$(jq '.hooks.SessionStart // []' "$SETTINGS_FILE" 2>/dev/null)
-HAS_COMPACT_HOOK=$(echo "$EXISTING_COMPACT" | jq '[.[].hooks[]? | select(.command | contains("workflow"))] | length')
+HAS_COMPACT_HOOK=$(echo "$EXISTING_COMPACT" | jq '[.[].hooks[]? | select(.command | contains("workflow/*.json"))] | length')
 
 if [ "$HAS_COMPACT_HOOK" -gt 0 ]; then
   echo "Compaction re-injection hook already installed."
@@ -970,7 +998,7 @@ Claude: [reads docs-orchestrator skill]
         [updates progress: status completed]
         [displays summary]
 
-Stop hook: [reads docs-workflow_proj_123.json — status: completed] → {ok: true}
+Stop hook: [reads docs-workflow_proj_123.json — status: completed] → exit 0
 ```
 
 ### Review-only (direct skill invocation)
@@ -998,7 +1026,7 @@ Claude: [reads docs-orchestrator skill]
         [runs writing]
         [continues through remaining steps]
 
-Stop hook: [validates each step on progress] → {ok: false} until all done
+Stop hook: [validates each step on progress] → exit 2 until all done
 ```
 
 ### Stop hook catches incomplete workflow
@@ -1009,12 +1037,12 @@ Claude: [runs requirements, planning, writing]
         [tries to stop — perhaps misinterprets writing output as final]
 
 Stop hook: [reads progress — technical-review still pending]
-           → {ok: false, reason: "Workflow for PROJ-123 not complete. Next step: technical-review"}
+           → exit 2, stderr: "Workflow for PROJ-123 not complete. Next step: technical-review"
 
 Claude: [continues with tech review, style review]
         [updates progress: status completed]
 
-Stop hook: [reads progress — status: completed] → {ok: true}
+Stop hook: [reads progress — status: completed] → exit 0
 ```
 
 ## Step Skill Contract
@@ -1153,7 +1181,7 @@ If any step fails due to access issues (JIRA auth, GitHub token, GitLab token):
 If Claude stops mid-workflow without updating the progress file (e.g., crash, timeout):
 
 1. The Stop hook detects the in_progress workflow on the next Claude invocation
-2. The hook returns `{ok: false}` with the next step
-3. Claude resumes the workflow
+2. The hook exits 2 with the next step on stderr
+3. Claude receives the stderr feedback and resumes the workflow
 
 This is a safety net — normally Claude updates the progress file before stopping.
