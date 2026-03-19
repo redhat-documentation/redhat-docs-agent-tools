@@ -1,0 +1,914 @@
+# Design Spec: Generic Docs Orchestrator Skill
+
+**Date**: 2026-03-19
+**Status**: Draft
+**Scope**: `plugins/docs-tools/`
+**Related**: `specs/2026-03-18-docs-workflow-decomposition-design.md` (step skill decomposition)
+
+## Problem
+
+The `docs-workflow` command works but its orchestration logic is hardcoded — the dispatch table, stage ordering, conditional logic, and iteration rules are all embedded in markdown instructions. This means:
+
+- **Every team gets the same pipeline** — no way to add, remove, or reorder stages without forking the orchestrator
+- **New workflows require new orchestrator skills** — a localization workflow, a review-only workflow, or a simplified onboarding workflow each need their own hardcoded orchestrator
+- **Orchestration logic is not testable** — it lives in natural-language instructions, not structured data
+
+## Solution
+
+Create a **new `docs-orchestrator` skill** that reads workflow definitions from a user-defined YAML file. The YAML declares params, steps, conditions, iteration rules, and confirmation gates. Claude interprets the YAML at runtime — there is no Python workflow engine. The orchestrator skill provides the rules for how to interpret the YAML; `workflow_state.py` handles state persistence.
+
+The existing `docs-workflow` command continues to work unchanged. `docs-orchestrator` is a **new, parallel capability** — teams adopt it when they want composable, YAML-driven workflows. Over time, `docs-workflow` may be re-expressed as a `docs-orchestrator.yaml` definition, but that migration is not part of this spec.
+
+Teams define their own `.claude/docs-orchestrator.yaml` (or multiple files in `.claude/docs-orchestrator/`) and compose workflows from any available skills.
+
+## Architecture
+
+```
+.claude/docs-orchestrator.yaml          ← Team-defined workflow
+     |
+     v
+docs-orchestrator skill                 ← Generic orchestrator (reads YAML, dispatches skills)
+     |
+     +-- workflow_state.py              ← State CRUD (init, next-step, complete, resume)
+     |
+     +-- Skill: step-1-skill            ← Step skills (existing, independent)
+     +-- Skill: step-2-skill
+     +-- ...
+```
+
+The orchestrator is **workflow-agnostic** — it knows how to read YAML, resolve templates, manage state, handle iteration/confirmation, and invoke skills. It does not know anything about JIRA, AsciiDoc, Vale, or any domain.
+
+## YAML Schema
+
+### Workflow definition file
+
+**Location**: `.claude/docs-orchestrator.yaml` (single workflow) or `.claude/docs-orchestrator/<name>.yaml` (multiple workflows).
+
+```yaml
+workflow:
+  name: <string>                        # Unique workflow identifier
+  description: <string>                 # Human-readable description
+
+  params:                               # Declared parameters
+    <param_name>:
+      type: string | bool | list | choice
+      required: <bool>                  # Default: false
+      default: <value>                  # Default value (required if required is false)
+      flag: <string>                    # CLI flag (e.g., --pr, --mkdocs, --integrate)
+      flag_value: <string>              # For choice params: what value the flag sets
+                                        # e.g., flag: --mkdocs, flag_value: mkdocs
+                                        # Only one flag maps to one value. Unmatched
+                                        # choices use the default. No --adoc flag needed
+                                        # when adoc is the default.
+      choices: [<values>]              # For type: choice — allowed values
+      accumulate: <bool>               # For list params: repeated flags append
+      description: <string>
+
+  preflight:                            # Optional pre-execution checks
+    - check: env
+      var: <string>                     # Environment variable name
+      source: <string>                  # File to source if var is unset (e.g., ~/.env)
+      required: <bool>                  # true = fail if missing, false = warn
+
+  output_base: <string>                # Base directory for all outputs
+                                        # Default: .claude/docs
+                                        # Supports {param} templates
+
+  steps:                                # Ordered list of step definitions
+    - <step definition>                 # See Step Schema below
+```
+
+### Step schema
+
+```yaml
+- name: <string>                        # Unique step identifier (kebab-case)
+  skill: <string>                       # Fully qualified skill name (plugin:skill)
+  description: <string>                 # For status display
+
+  args: <string>                        # Template string passed as skill args
+                                        # Resolved by orchestrator before invocation
+
+  output: <string>                      # Output file path pattern, relative to output_base
+                                        # null for steps with no file output (e.g., JIRA creation)
+
+  condition: <string>                   # Optional — step runs only if expression is truthy
+                                        # Skipped (not failed) if false
+
+  iterate:                              # Optional — step runs in a loop
+    max: <int>                          # Maximum iterations (required)
+    check:
+      file: <string>                    # Template — file to read after each iteration
+      pattern: <string>                 # Regex with one capture group to extract a value
+      done_when: <string>               # Value that means "stop iterating"
+    fix:
+      skill: <string>                   # Skill to invoke between iterations (to fix issues)
+      args: <string>                    # Template string for fix skill args
+
+  confirm:                              # Optional — ask user before running this step
+    prompt: <string>                    # Question to present (supports {templates})
+    show_file: <string>                 # Template — file to read and display before asking
+    on_decline: complete | skip         # complete = mark step done, skip = skip entirely
+```
+
+### Template resolution
+
+Template strings use `{...}` delimiters. The orchestrator resolves them before passing args to skills or evaluating conditions.
+
+| Reference | Resolves to | Example |
+|---|---|---|
+| `{param_name}` | Value of a declared param | `{ticket}` → `PROJ-123` |
+| `{param_name\|lower}` | Value with filter applied | `{ticket\|lower}` → `proj-123` |
+| `{steps.<name>.output}` | Absolute path to a completed step's output file | `{steps.requirements.output}` → `/abs/path/to/requirements.md` |
+| `{output}` | This step's resolved output path (absolute) | `{output}` → `/abs/path/to/drafts/proj-123/_index.md` |
+| `{output_base}` | The resolved `output_base` directory (absolute) | `{output_base}` → `/abs/path/to/.claude/docs` |
+| `{timestamp}` | Current timestamp (`YYYYMMDD_HHMMSS`), resolved once at step start (not re-resolved on iteration re-dispatch) | `{timestamp}` → `20260319_143022` |
+
+**Filters** (applied with `|`):
+
+| Filter | Effect | Example |
+|---|---|---|
+| `lower` | Lowercase | `{ticket\|lower}` → `proj-123` |
+| `upper` | Uppercase | `{ticket\|upper}` → `PROJ-123` |
+| `safe` | Lowercase + replace hyphens with underscores | `{ticket\|safe}` → `proj_123` |
+| `join:,` | Join list values with delimiter | `{pr_urls\|join:,}` → `url1,url2` |
+| `repeat:--pr` | Expand list as repeated flags | `{pr_urls\|repeat:--pr}` → `--pr url1 --pr url2` |
+
+**Condition expressions:**
+
+Conditions are simple comparisons evaluated by the orchestrator:
+
+```yaml
+condition: "{integrate} == true"              # Bool param check
+condition: "{create_jira_project} != null"    # Null check
+condition: "{format} == mkdocs"               # Choice param check
+```
+
+Supported operators: `==`, `!=`. Values are compared as strings after template resolution. `null` is a special literal meaning "the param's value is null/unset."
+
+### List param handling in args
+
+For list params (like `pr_urls`), the args template determines how the list is serialized:
+
+```yaml
+# Repeated flags (most common):
+args: "{ticket} {pr_urls|repeat:--pr} --output {output}"
+# Resolves to: "PROJ-123 --pr https://url1 --pr https://url2 --output /path/out.md"
+
+# Comma-separated:
+args: "{ticket} --urls {pr_urls|join:,} --output {output}"
+# Resolves to: "PROJ-123 --urls https://url1,https://url2 --output /path/out.md"
+```
+
+If a list param is empty, the template segment resolves to an empty string (the flag is omitted entirely).
+
+## Reference Implementation: docs-workflow
+
+The existing docs-workflow expressed as YAML:
+
+```yaml
+workflow:
+  name: docs-workflow
+  description: >
+    Multi-stage documentation workflow for a JIRA ticket.
+    Orchestrates skills sequentially: requirements analysis, planning,
+    writing, technical review, style review, and optionally integration
+    and JIRA creation.
+
+  params:
+    ticket:
+      type: string
+      required: true
+      description: JIRA ticket ID (e.g., PROJ-123)
+
+    pr_urls:
+      type: list
+      default: []
+      flag: --pr
+      accumulate: true
+      description: PR/MR URLs to include in analysis
+
+    format:
+      type: choice
+      choices: [adoc, mkdocs]
+      default: adoc
+      flag: --mkdocs
+      flag_value: mkdocs
+      description: Output format (AsciiDoc or Material for MkDocs)
+
+    integrate:
+      type: bool
+      default: false
+      flag: --integrate
+      description: Integrate drafts into the repo build framework
+
+    create_jira_project:
+      type: string
+      default: null
+      flag: --create-jira
+      description: JIRA project key for docs ticket creation
+
+  preflight:
+    - check: env
+      var: JIRA_AUTH_TOKEN
+      source: ~/.env
+      required: true
+    - check: env
+      var: GITHUB_TOKEN
+      source: ~/.env
+      required: false
+    - check: env
+      var: GITLAB_TOKEN
+      source: ~/.env
+      required: false
+
+  output_base: .claude/docs
+
+  steps:
+    - name: requirements
+      skill: docs-tools:docs-workflow-requirements
+      description: Analyze documentation requirements
+      output: requirements/requirements_{ticket|safe}_{timestamp}.md
+      args: "{ticket} {pr_urls|repeat:--pr} --output {output}"
+
+    - name: planning
+      skill: docs-tools:docs-workflow-planning
+      description: Create documentation plan
+      output: plans/plan_{ticket|safe}_{timestamp}.md
+      args: "{ticket} --input {steps.requirements.output} --output {output}"
+
+    - name: writing
+      skill: docs-tools:docs-workflow-writing
+      description: Write documentation drafts
+      output: drafts/{ticket|lower}/_index.md
+      args: "{ticket} --input {steps.planning.output} --output {output} --format {format}"
+
+    - name: technical-review
+      skill: docs-tools:docs-workflow-tech-review
+      description: Technical accuracy review
+      output: drafts/{ticket|lower}/_technical_review.md
+      args: "{ticket} --drafts-dir {output_base}/drafts/{ticket|lower} --output {output}"
+      iterate:
+        max: 3
+        check:
+          file: "{output}"
+          pattern: "Overall technical confidence:\\s*(HIGH|MEDIUM|LOW)"
+          done_when: HIGH
+        fix:
+          skill: docs-tools:docs-workflow-writing
+          args: "{ticket} --fix-from {output} --drafts-dir {output_base}/drafts/{ticket|lower}"
+
+    - name: style-review
+      skill: docs-tools:docs-workflow-style-review
+      description: Style guide compliance review
+      output: drafts/{ticket|lower}/_review_report.md
+      args: "{ticket} --drafts-dir {output_base}/drafts/{ticket|lower} --output {output} --format {format}"
+
+    - name: integrate-plan
+      skill: docs-tools:docs-workflow-integrate
+      description: Plan integration into build framework
+      condition: "{integrate} == true"
+      output: drafts/{ticket|lower}/_integration_plan.md
+      args: "{ticket} --phase plan --drafts-dir {output_base}/drafts/{ticket|lower} --output {output}"
+
+    - name: integrate-execute
+      skill: docs-tools:docs-workflow-integrate
+      description: Execute integration
+      condition: "{integrate} == true"
+      output: drafts/{ticket|lower}/_integration_report.md
+      args: "{ticket} --phase execute --drafts-dir {output_base}/drafts/{ticket|lower} --plan {steps.integrate-plan.output} --output {output}"
+      confirm:
+        prompt: "The integration plan proposes the changes listed above. Shall I proceed with the integration?"
+        show_file: "{steps.integrate-plan.output}"
+        on_decline: complete
+
+    - name: create-jira
+      skill: docs-tools:docs-workflow-create-jira
+      description: Create linked JIRA ticket
+      condition: "{create_jira_project} != null"
+      output: null
+      args: "{ticket} --project {create_jira_project} --plan {steps.planning.output}"
+```
+
+### Design notes on the reference implementation
+
+1. **Integration is two steps, not one.** The old monolith used a phase state machine inside a single stage. The YAML expresses this as two steps (`integrate-plan`, `integrate-execute`) with a `confirm` gate on the second. This is cleaner — no phase concept needed in the orchestrator.
+
+2. **Tech review iteration is declarative.** The `iterate` block tells the orchestrator to loop: run the step, check output, optionally run a fix skill, repeat. The orchestrator handles the loop counter and convergence check.
+
+3. **Null output for create-jira.** The JIRA step produces a URL, not a file. Setting `output: null` tells the orchestrator to skip output verification. The step skill is responsible for updating state with whatever result it produces.
+
+4. **Filters handle ticket casing.** `{ticket|safe}` produces `proj_123` for file paths, `{ticket|lower}` produces `proj-123` for directory names.
+
+## Component Inventory
+
+### New files
+
+```
+plugins/docs-tools/skills/
+  docs-orchestrator/
+    docs-orchestrator.md                      # Generic orchestrator skill (~300 lines)
+    scripts/
+      workflow_state.py                       # State management (~150 lines)
+```
+
+### Step skills (from previous spec, unchanged)
+
+```
+plugins/docs-tools/skills/
+  docs-workflow-requirements/
+    docs-workflow-requirements.md
+  docs-workflow-planning/
+    docs-workflow-planning.md
+  docs-workflow-writing/
+    docs-workflow-writing.md
+  docs-workflow-tech-review/
+    docs-workflow-tech-review.md
+  docs-workflow-style-review/
+    docs-workflow-style-review.md
+  docs-workflow-integrate/
+    docs-workflow-integrate.md
+  docs-workflow-create-jira/
+    docs-workflow-create-jira.md
+```
+
+### User-created files (per team/repo)
+
+```
+.claude/
+  docs-orchestrator.yaml                      # Single workflow
+  # OR
+  docs-orchestrator/
+    docs-workflow.yaml                        # Multiple workflows
+    review-only.yaml
+    localization.yaml
+```
+
+### Existing files (unchanged)
+
+- `commands/docs-workflow.md` — continues to work as-is; `docs-orchestrator` is a new parallel capability, not a replacement
+
+## Orchestrator Skill: `docs-orchestrator.md`
+
+**Location**: `plugins/docs-tools/skills/docs-orchestrator/docs-orchestrator.md`
+
+### Frontmatter
+
+```yaml
+---
+name: docs-orchestrator
+description: >
+  Generic workflow orchestrator. Reads workflow definitions from
+  .claude/docs-orchestrator.yaml and executes steps sequentially,
+  handling iteration, confirmation gates, and conditional execution.
+  Workflow-agnostic — all domain logic lives in step skills.
+argument-hint: <action> [workflow-name] <params...>
+allowed-tools: Read, Write, Glob, Grep, Edit, Bash, Skill, AskUserQuestion, WebSearch, WebFetch
+---
+```
+
+### Actions
+
+| Action | Usage | Description |
+|---|---|---|
+| `start` | `start [workflow] <params...>` | Begin a new workflow run |
+| `resume` | `resume [workflow] <identifier>` | Resume a paused/failed workflow |
+| `status` | `status [workflow] <identifier>` | Show workflow progress |
+| `list` | `list` | List available workflows from YAML files |
+
+When only one workflow YAML exists, the workflow name can be omitted.
+
+### Orchestrator pseudocode
+
+```
+## Step 1: Locate workflow definition
+
+Search for YAML files:
+  1. .claude/docs-orchestrator.yaml (single workflow)
+  2. .claude/docs-orchestrator/<name>.yaml (named workflow)
+
+If multiple workflows exist and no name was provided, list them and ask.
+Parse the YAML and validate against the schema.
+
+## Step 2: Parse params
+
+Map CLI args to declared params:
+  - Positional args fill required params in declaration order
+  - Flags (--pr, --mkdocs, etc.) set their declared params
+  - Accumulate flags (--pr url1 --pr url2) build list params
+  - Flag-value mappings (--mkdocs → format: mkdocs) are applied
+  - Missing required params → STOP, ask user
+  - Missing optional params → use declared defaults
+
+## Step 3: Run preflight checks
+
+For each preflight entry:
+  - check: env → verify environment variable is set
+    If unset and source is specified, attempt to source the file
+    If required and still unset → STOP with error
+    If not required and unset → WARN and continue
+
+## Step 4: Initialize or load state
+
+Compute state file path:
+  STATE_DIR = <output_base>/workflow/
+  IDENTIFIER = first required param value (e.g., ticket)
+  STATE_FILE = STATE_DIR/<workflow-name>_<identifier|safe>.json
+
+For "start" action:
+  python3 scripts/workflow_state.py init \
+    --workflow <name> --identifier <id> --steps <step-names-json> --params <params-json>
+
+For "resume" action:
+  python3 scripts/workflow_state.py load --workflow <name> --identifier <id>
+  Apply any new flag values (e.g., additional --pr URLs on resume)
+
+For "status" action:
+  python3 scripts/workflow_state.py status --workflow <name> --identifier <id>
+  Display and STOP.
+
+## Step 5: Dispatch loop
+
+Loop:
+  NEXT = python3 scripts/workflow_state.py next-step \
+    --workflow <name> --identifier <id> --conditions <resolved-conditions-json>
+
+  If NEXT is "done", break.
+
+  Resolve the step definition from the YAML.
+
+  ### 5a: Confirm gate (if step has `confirm`)
+  If the step has a `confirm` block:
+    1. Read the file at confirm.show_file (resolved template)
+    2. Present a summary of the file contents to the user
+    3. Ask the user: confirm.prompt (resolved template, via AskUserQuestion)
+    4. If user declines:
+       - on_decline == "complete" →
+           complete-step (mark done without running), continue to next
+       - on_decline == "skip" →
+           skip-step (mark skipped), continue to next
+    5. If user confirms → proceed to 5b
+
+  ### 5b: Mark step in progress
+  python3 scripts/workflow_state.py start-step \
+    --workflow <name> --identifier <id> --step <step-name>
+
+  ### 5c: Resolve templates
+  Resolve all {templates} in the step's `args` and `output`:
+    - {param} → param value
+    - {param|filter} → filtered param value
+    - {steps.<name>.output} → completed step's output path from state
+    - {output} → this step's resolved output path (output_base + output pattern)
+    - {output_base} → resolved output base directory
+    - {timestamp} → current timestamp
+
+  Ensure output directory exists (mkdir -p).
+
+  ### 5d: Dispatch skill
+  Invoke the step skill:
+    Skill: <step.skill>, args: "<resolved args>"
+
+  ### 5e: Handle iteration (if step has `iterate`)
+  After skill returns:
+    1. Increment iteration counter in state
+    2. Read iterate.check.file (resolved)
+    3. Extract value using iterate.check.pattern (regex)
+    4. If extracted value == iterate.check.done_when →
+       proceed to 5f (verify output and mark completed)
+    5. If iterations < iterate.max:
+       - Invoke iterate.fix.skill with resolved iterate.fix.args
+       - Go back to 5d (re-dispatch the main skill)
+    6. If iterations >= iterate.max →
+       proceed to 5f with warning that manual review is recommended
+
+  ### 5f: Verify output (if step has `output`)
+  If step.output is not null:
+    - Verify the resolved output file exists
+    - If not found, search the output directory for recent matching files
+    - If still not found → fail-step, STOP
+
+  ### 5g: Mark step completed
+  python3 scripts/workflow_state.py complete-step \
+    --workflow <name> --identifier <id> --step <step-name> --output <output-path>
+
+  Loop back to next-step.
+
+  NOTE: Steps 5f and 5g always run after 5e completes (whether via
+  done_when match or max iterations). The iteration loop at 5e only
+  loops back to 5d — it never skips 5f/5g.
+
+## Step 6: Completion
+
+python3 scripts/workflow_state.py complete-workflow \
+  --workflow <name> --identifier <id>
+
+Display final status summary.
+```
+
+## State Management
+
+### State file schema
+
+```json
+{
+  "workflow": "docs-workflow",
+  "identifier": "proj-123",
+  "created_at": "2026-03-19T10:00:00Z",
+  "updated_at": "2026-03-19T12:34:56Z",
+  "status": "in_progress",
+  "current_step": "writing",
+  "params": {
+    "ticket": "PROJ-123",
+    "pr_urls": ["https://github.com/org/repo/pull/456"],
+    "format": "adoc",
+    "integrate": false,
+    "create_jira_project": null
+  },
+  "steps": {
+    "requirements": {
+      "status": "completed",
+      "output": "/abs/path/to/requirements_proj_123_20260319.md",
+      "started_at": "2026-03-19T10:01:00Z",
+      "completed_at": "2026-03-19T10:05:00Z",
+      "iterations": 0
+    },
+    "planning": {
+      "status": "completed",
+      "output": "/abs/path/to/plan_proj_123_20260319.md",
+      "started_at": "2026-03-19T10:05:00Z",
+      "completed_at": "2026-03-19T10:12:00Z",
+      "iterations": 0
+    },
+    "writing": {
+      "status": "in_progress",
+      "output": null,
+      "started_at": "2026-03-19T10:12:00Z",
+      "completed_at": null,
+      "iterations": 0
+    },
+    "integrate-execute": {
+      "status": "skipped",
+      "output": null,
+      "started_at": null,
+      "completed_at": "2026-03-19T12:00:00Z",
+      "iterations": 0
+    }
+  }
+}
+```
+
+### State file location
+
+```
+<output_base>/workflow/<workflow-name>_<identifier|safe>.json
+```
+
+Example: `.claude/docs/workflow/docs-workflow_proj_123.json`
+
+### `workflow_state.py` commands
+
+```
+init --workflow <name> --identifier <id> --steps <json-array> --params <json-object>
+    Create a new state file. Initialize all steps as pending.
+    Print the state file path.
+
+load --workflow <name> --identifier <id>
+    Print the state file path. Exit 1 if not found.
+
+status --workflow <name> --identifier <id>
+    Print formatted status display with step checkmarks.
+
+next-step --workflow <name> --identifier <id> --conditions <json-object>
+    Print the name of the next incomplete step.
+    The conditions object maps step names to their resolved condition
+    expressions. Steps whose condition evaluates to false are skipped.
+    Print "done" if all applicable steps are completed.
+
+start-step --workflow <name> --identifier <id> --step <step-name>
+    Mark step as in_progress, set started_at, update current_step.
+
+complete-step --workflow <name> --identifier <id> --step <step-name> [--output <path>]
+    Mark step as completed. Optionally record output path.
+
+fail-step --workflow <name> --identifier <id> --step <step-name>
+    Mark step and workflow as failed.
+
+skip-step --workflow <name> --identifier <id> --step <step-name>
+    Mark step as skipped. Used when a confirmation gate is declined with
+    on_decline=skip, or when a conditional step is skipped in standalone mode.
+    next-step treats skipped the same as completed (advances past it).
+
+get --workflow <name> --identifier <id> <dotpath>
+    Read a value from state. e.g., get ... .params.format
+
+set --workflow <name> --identifier <id> <expression>
+    Update state. e.g., set ... '.steps.technical-review.iterations += 1'
+
+update-params --workflow <name> --identifier <id> --params <json-object>
+    Merge new param values into existing state (for resume with new flags).
+
+complete-workflow --workflow <name> --identifier <id>
+    Mark overall workflow as completed.
+```
+
+### Implementation notes
+
+- Pure Python, no `jq` dependency
+- Atomic writes (`tempfile` + `os.replace`)
+- `next-step` receives pre-resolved conditions as a JSON object so it can skip conditional steps without needing to parse YAML or resolve templates itself
+- The `--conditions` object format: `{"integrate-plan": true, "integrate-execute": true, "create-jira": false}` — the orchestrator resolves all condition templates and passes the boolean results
+- State files from the old `docs-workflow` command are not compatible — the orchestrator creates new state files with a different schema
+- `output_base` templates can only reference params (not step outputs), since it is resolved before any steps run
+- `next-step` treats both `completed` and `skipped` statuses as "done" — it advances past both
+
+## Step Skill Contract
+
+Step skills invoked by the orchestrator follow a lightweight contract.
+
+### What step skills receive
+
+A single `args` string, resolved by the orchestrator. The args contain everything the skill needs — ticket ID, input file paths, output file path, format options, etc.
+
+### What step skills must do
+
+1. Parse their args (the skill defines its own arg format)
+2. Do their work (dispatch agents, run scripts, call APIs)
+3. Write their output to the path specified in args (if applicable)
+4. Return — the orchestrator handles state updates
+
+### What step skills must NOT do
+
+- Manage workflow state (no calls to `workflow_state.py`)
+- Know about other steps (no reading from state file)
+- Handle iteration (the orchestrator loops, not the skill)
+- Handle confirmation gates (the orchestrator asks, not the skill)
+
+### Standalone invocation
+
+Step skills can still be invoked directly, outside the orchestrator:
+
+```
+Skill: docs-tools:docs-workflow-requirements, args: "PROJ-123 --output /tmp/reqs.md --pr https://..."
+```
+
+The skill doesn't know or care whether it's being called by the orchestrator or directly. It just receives args and does its work.
+
+### Relationship to docs-workflow step skills
+
+If step skills are created following the previous decomposition spec (2026-03-18), they may call `workflow_state.py` directly (start-stage, complete-stage, etc.). Under `docs-orchestrator`, step skills are simpler — they don't touch state. The orchestrator handles all state transitions. Step skills designed for `docs-orchestrator` follow a 3-step contract: parse args → do work → write output.
+
+Step skills can be designed to work with both systems by making state calls conditional (only if a state file is passed as an arg).
+
+## Example: Team-Specific Workflows
+
+### Review-only workflow (no writing)
+
+```yaml
+workflow:
+  name: review-only
+  description: Run style and technical review on existing drafts
+
+  params:
+    drafts_dir:
+      type: string
+      required: true
+      description: Path to drafts directory
+
+    format:
+      type: choice
+      choices: [adoc, mkdocs]
+      default: adoc
+      flag: --mkdocs
+      flag_value: mkdocs
+
+  output_base: .claude/docs
+
+  steps:
+    - name: technical-review
+      skill: docs-tools:docs-workflow-tech-review
+      description: Technical accuracy review
+      output: reviews/_technical_review_{timestamp}.md
+      args: "--drafts-dir {drafts_dir} --output {output}"
+      iterate:
+        max: 2
+        check:
+          file: "{output}"
+          pattern: "Overall technical confidence:\\s*(HIGH|MEDIUM|LOW)"
+          done_when: HIGH
+        fix:
+          skill: docs-tools:docs-workflow-writing
+          args: "--fix-from {output} --drafts-dir {drafts_dir}"
+
+    - name: style-review
+      skill: docs-tools:docs-workflow-style-review
+      description: Style guide compliance review
+      output: reviews/_review_report_{timestamp}.md
+      args: "--drafts-dir {drafts_dir} --output {output} --format {format}"
+```
+
+**Invocation:**
+
+```
+Skill: docs-tools:docs-orchestrator, args: "start review-only ./modules --mkdocs"
+```
+
+### Localization workflow (custom stages)
+
+```yaml
+workflow:
+  name: localization
+  description: Prepare docs for translation
+
+  params:
+    ticket:
+      type: string
+      required: true
+    source_lang:
+      type: string
+      default: en
+    target_langs:
+      type: list
+      default: [ja, ko, zh]
+      flag: --lang
+      accumulate: true
+
+  output_base: .claude/docs
+
+  steps:
+    - name: extract-strings
+      skill: l10n-tools:extract-translatable
+      description: Extract translatable strings
+      output: l10n/{ticket|safe}/strings_{timestamp}.xliff
+      args: "{ticket} --lang {source_lang} --output {output}"
+
+    - name: terminology-check
+      skill: l10n-tools:terminology-review
+      description: Check terminology consistency
+      output: l10n/{ticket|safe}/terminology_report.md
+      args: "--input {steps.extract-strings.output} --output {output}"
+
+    - name: prepare-handoff
+      skill: l10n-tools:translation-handoff
+      description: Package for translation vendor
+      output: l10n/{ticket|safe}/handoff_{timestamp}.zip
+      args: "--input {steps.extract-strings.output} --langs {target_langs|join:,} --output {output}"
+      confirm:
+        prompt: "Ready to create the translation handoff package for {target_langs|join:, }?"
+        show_file: "{steps.terminology-check.output}"
+        on_decline: complete
+```
+
+## YAML Validation
+
+The orchestrator validates the YAML before execution:
+
+### Required fields
+
+| Field | Required | Level |
+|---|---|---|
+| `workflow.name` | Yes | Workflow |
+| `workflow.description` | No | Workflow |
+| `workflow.steps` | Yes (non-empty) | Workflow |
+| `step.name` | Yes | Step |
+| `step.skill` | Yes | Step |
+| `step.description` | Yes | Step |
+| `step.args` | Yes | Step |
+
+### Validation rules
+
+1. **Step names must be unique** — no duplicate names within a workflow
+2. **Step references must be valid** — `{steps.<name>.output}` must reference a step that appears earlier in the list
+3. **Required params must not have defaults** — if `required: true`, `default` is ignored
+4. **Iterate requires check and fix** — if `iterate` is specified, both `check` and `fix` must be present
+5. **Confirm show_file must be resolvable** — if `confirm.show_file` references a step output, that step must appear earlier
+6. **Condition expressions must be valid** — only `==` and `!=` operators, right-hand side must be a literal
+
+### Validation timing
+
+Validation runs at YAML load time, before any steps execute. Template references to `{steps.<name>.output}` are validated structurally (the referenced step exists and appears earlier) but not resolved (the output file may not exist yet).
+
+## Error Handling
+
+### Step failure
+
+When a step skill fails (returns an error, or output verification fails):
+
+1. Mark the step as `failed` in state
+2. Mark the overall workflow as `failed`
+3. Display the error and the step that failed
+4. Tell the user to fix the issue and resume:
+   `Skill: docs-tools:docs-orchestrator, args: "resume <workflow> <identifier>"`
+
+### Preflight failure
+
+If a required preflight check fails:
+
+1. Display the specific check that failed
+2. List available env files
+3. STOP — do not initialize state or run any steps
+
+### YAML validation failure
+
+If the YAML is invalid:
+
+1. Display the specific validation error with line reference
+2. STOP
+
+### Resume after failure
+
+On resume, the orchestrator:
+
+1. Loads existing state
+2. Re-reads the YAML and re-resolves all conditions against current params (params may have changed via `update-params` on resume — e.g., user removes `--integrate`)
+3. Resets the failed step to `pending`
+4. Calls `next-step` with the freshly resolved conditions
+5. Continues from the next incomplete/non-skipped step
+
+## Access Failure Handling
+
+If any step fails due to access issues (JIRA auth, GitHub token, GitLab token):
+
+1. **STOP IMMEDIATELY** — do not proceed to the next step
+2. **Report the exact error** — display the full error message
+3. **Mark the step as failed** in state
+4. **Await user action** — user must fix credentials and resume
+
+This behavior is inherited from step skills — the orchestrator does not catch or mask access errors.
+
+## Migration Path
+
+### Relationship to existing docs-workflow
+
+`docs-orchestrator` is a **new skill** that coexists with the existing `docs-workflow` command. The existing command continues to work unchanged. Teams can adopt `docs-orchestrator` at their own pace by:
+
+1. Writing a `.claude/docs-orchestrator.yaml` that expresses their desired workflow
+2. Creating step skills that follow the step skill contract
+3. Invoking `docs-tools:docs-orchestrator` instead of `docs-tools:docs-workflow`
+
+A future migration could re-express `docs-workflow` as a YAML definition for `docs-orchestrator`, but that is **out of scope** for this spec.
+
+### Implementation steps
+
+1. Create `workflow_state.py` with the generic CLI
+2. Create `docs-orchestrator.md` skill
+3. Create step skills that follow the step skill contract (can reuse agent definitions from `docs-workflow`)
+4. Write a reference `.claude/docs-orchestrator.yaml` as an example workflow
+5. Update `marketplace.json` to register `docs-orchestrator`
+
+## Testing
+
+### YAML parsing and validation
+
+- Valid YAML with all features parses correctly
+- Missing required fields produce clear errors
+- Invalid step references are caught at validation time
+- Circular step references are detected
+- Condition expressions with unsupported operators are rejected
+
+### Template resolution
+
+- Simple param references resolve correctly
+- Filters (lower, upper, safe, join, repeat) produce correct output
+- Step output references resolve to absolute paths
+- Empty list params produce empty strings (no dangling flags)
+- Nested filters are rejected (only one filter per reference)
+
+### Orchestrator dispatch loop
+
+- Sequential steps execute in order
+- Conditional steps are skipped when condition is false
+- Conditional steps run when condition is true
+- Iteration stops when done_when is matched
+- Iteration stops at max iterations with warning
+- Confirm gates present the correct file and prompt
+- Confirm decline with on_decline=complete marks step done
+- Confirm decline with on_decline=skip skips the step
+- Resume picks up at the correct step
+
+### State management
+
+- Init creates valid state with all declared steps
+- Next-step respects conditions
+- Complete-step records output path
+- Resume after failure resets failed step to pending
+
+## Design Note: Skill Composition is the Intended Pattern
+
+The orchestrator invokes step skills via the `Skill` tool, and step skills dispatch agents via the `Agent` tool. This is not "3 levels of nesting" — it is standard skill composition:
+
+1. Claude loads orchestrator instructions (context load, not a subprocess)
+2. Claude invokes `Skill` tool → step skill markdown loads into context (context load)
+3. Claude invokes `Agent` tool → subagent runs (actual subprocess)
+
+Only the `Agent` dispatch creates a real subprocess. The skill-to-skill invocation is just Claude reading sequential instructions in the same context. This is the same pattern used by `docs-reviewer`, which loads 18 review skills through its agent definition. Skill composition is the orchestration mechanism — with commands deprecated, skills invoking skills is the intended architecture.
+
+## Open Questions
+
+1. **Multiple workflow files** — Should `.claude/docs-orchestrator/` support subdirectories for organization, or flat files only?
+
+2. **Step parallelism** — The current design is strictly sequential. A future extension could add a `parallel` group construct for independent steps (e.g., tech review and style review). Deferred for now — keep it simple.
+
+3. **Step skill discovery** — Should the orchestrator validate that all referenced skills exist before starting? This requires knowing how to check skill availability at runtime.
+
+4. **Output as structured data** — Some steps produce structured output (JIRA URL, not a file). The current design uses `output: null` for these. A future extension could add `output_type: url | file | directory` for richer handling.
+
+5. **Workflow composition** — Should one workflow YAML be able to include/extend another? e.g., `extends: docs-workflow` with overrides. Deferred — YAGNI until teams actually need it.
