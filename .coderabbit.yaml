@@ -1,0 +1,165 @@
+language: en-US
+early_access: false
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+auto_review:
+  enabled: true
+  drafts: true
+pre_merge_checks:
+  custom_checks:
+    - name: "No Real People Names in Style References"
+      mode: error
+      instructions: |
+        Never allow references to real people by name in:
+        - Plugin commands
+        - Skill documentation
+        - Example prompts or instructions
+        - Style references (e.g., "in the style of <person>")
+
+        Instead, require explicit descriptions of desired qualities (e.g., "direct and technically precise"
+        instead of "like <specific person>").
+
+        Flag ANY instance where a real person's name is used as a style reference or example.
+
+    - name: "No Assumed Git Remote Names"
+      mode: error
+      instructions: |
+        Code should NEVER assume git remote names like "origin" or "upstream" without first discovering them.
+
+        Bad examples:
+        - `git push origin main`
+        - `git fetch upstream`
+        - `git remote add origin <url>`
+        - Using "origin" or "upstream" in instructions without checking first
+
+        Good examples:
+        - `git remote -v` to discover remotes first
+        - `git branch -vv` to check tracking branches
+        - Instructions that say "discover the remote name first"
+
+        Flag any hardcoded remote name usage in commands, skills, or documentation.
+
+    - name: "Git Push Safety Rules"
+      mode: error
+      instructions: |
+        1. Commands and skills must NEVER push without explicit user permission
+        - Must ask the user before pushing
+        - Cannot push autonomously
+
+        2. NEVER allow pushing to main or master branches
+        - Reject `git push <remote> main`
+        - Reject `git push <remote> master`
+        - Reject any push to main/master variants
+
+        3. NEVER allow force push operations anywhere
+        - Reject `git push -f`
+        - Reject `git push --force`
+        - Reject `git push --force-with-lease`
+        - Reject any force push variant
+
+        Flag any git push without user confirmation, any push to main/master, or any force push.
+
+    - name: "No Untrusted MCP Servers"
+      mode: error
+      instructions: |
+        Code should NEVER introduce MCP (Model Context Protocol) server installations from untrusted sources.
+
+        Reject:
+        - Random npm packages for MCP servers
+        - Arbitrary GitHub repositories
+        - Unofficial or unverified MCP servers
+        - Any `npx @<random-org>/mcp-server-*` installations
+
+        Flag any introduction of new MCP server dependencies and require justification and security review.
+
+    - name: "Fully Qualified Skill Names"
+      mode: error
+      instructions: |
+        All skill references must use fully qualified `plugin:skill` names everywhere:
+        - Agent frontmatter
+        - Skill tool invocations
+        - Inline text references
+        - Cross-references between skills
+
+        Good examples:
+        - `docs-tools:jira-reader`
+        - `docs-tools:rh-ssg-formatting`
+        - `vale-tools:lint-with-vale`
+        - `dita-tools:dita-rework`
+
+        Bad examples:
+        - `jira-reader` (missing plugin prefix)
+        - `rh-ssg-formatting` (missing plugin prefix)
+        - `vale` (missing plugin prefix)
+        - `/jira-reader --issue PROJ-123` (old slash-command syntax)
+
+        Flag any skill reference that is missing the `plugin:` prefix or uses old slash-command syntax.
+
+    - name: "Script Invocation Patterns"
+      mode: warning
+      instructions: |
+        Skills calling their own co-located scripts must use relative paths:
+        - `python3 scripts/git_pr_reader.py info <url> --json`
+        - `ruby scripts/callouts.rb "$file"`
+
+        Cross-skill/command script calls must use `${CLAUDE_PLUGIN_ROOT}`:
+        - `python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py`
+
+        Knowledge-only skills (checklists, review rules) must use `Skill:` pseudocode:
+        - `Skill: docs-tools:rh-ssg-formatting, args: "review path/to/file.adoc"`
+
+        Do NOT use old slash-command syntax (e.g., `/jira-reader --issue PROJ-123`).
+
+        Flag any mismatch between script invocation pattern and context.
+
+    - name: "Plugin Overlap Detection"
+      mode: warning
+      instructions: |
+        When a PR adds or significantly modifies plugin files (plugins/*/commands/*.md,
+        plugins/*/skills/*.md, plugins/*/agents/*.md), check for overlapping functionality.
+
+        1. List open PRs that also modify plugin files
+        2. Filter to PRs touching: plugins/*/commands/, plugins/*/skills/, or plugins/*/agents/
+        3. Compare PR titles and modified file paths for semantic similarity
+        4. Also check against existing repository content:
+        - Scan all existing commands: plugins/*/commands/*.md
+        - Scan all existing skills: plugins/*/skills/*.md
+        - Scan all existing agents: plugins/*/agents/*.md
+        - Compare new/modified files against existing files
+        - Flag if similarity >= 60% with any existing content
+
+        Semantic equivalents: "analyze"~"inspect", "review"~"check"~"audit", "generate"~"create"
+
+        HIGH (>=85%): Flag immediately with recommendation to consolidate
+        MODERATE (60-84%): Flag with recommendation to differentiate
+        LOW (<60%): Pass silently
+
+    - name: "Marketplace Sync"
+      mode: error
+      instructions: |
+        When a PR modifies any `plugins/*/.claude-plugin/plugin.json` file, verify that
+        `.claude-plugin/marketplace.json` at the repo root is also updated to match.
+
+        Check that:
+        - Plugin name matches between plugin.json and marketplace.json
+        - Plugin version matches between plugin.json and marketplace.json
+        - Plugin description matches between plugin.json and marketplace.json
+        - New plugins are registered in marketplace.json
+
+        Flag any PR that changes plugin.json without corresponding marketplace.json updates.
+
+  tools:
+    shellcheck:
+      enabled: true
+    yamllint:
+      enabled: true
+    markdownlint:
+      enabled: true
+
+chat:
+  auto_reply: true
