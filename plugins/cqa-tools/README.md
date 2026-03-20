@@ -65,21 +65,21 @@ Or invoke individual skills:
 
 | Order | Skill | Parameters | What it assesses |
 |-------|-------|------------|------------------|
-| 1 | `cqa-vale-check` | P1 | Vale DITA linting — foundational, fixes here affect all other checks |
-| 2 | `cqa-modularization` | P2-P7 | Assembly structure, module prefixes, content types, nesting rules |
-| 3 | `cqa-titles-descriptions` | P8-P11, Q11 | Title quality, short descriptions, DITA abstracts, assembly intros |
-| 4 | `cqa-procedures` | P12, Q12-Q16 | Prerequisites, step count, command examples, verification sections |
-| 5 | `cqa-editorial` | P13-P14, Q1-Q5, Q18, Q20 | Scannability, readability, complex words, fluff, tone, style guide |
-| 6 | `cqa-links` | P15-P17, Q24-Q25 | Broken xrefs, missing includes, dead URLs, content journey |
-| 7 | `cqa-legal-branding` | P18-P19, Q17, Q23, O1-O5 | Product names, TP/DP disclaimers, conscious language, legal notices |
-| 8 | `cqa-user-focus` | Q6-Q11 | Persona targeting, acronym expansion, admonition density |
-| 9 | `cqa-tables-images` | Q19, Q21-Q22 | Screenshots, table captions and headers, image alt text |
-| 10 | `cqa-onboarding` | O6-O10 | Support disclaimers, SME verification, Pantheon publishing |
-| 11 | `cqa-report` | Final | Before-and-after summary report with scores and evidence |
+| 1 | `cqa-tools:cqa-vale-check` | P1 | Vale DITA linting — foundational, fixes here affect all other checks |
+| 2 | `cqa-tools:cqa-modularization` | P2-P7 | Assembly structure, module prefixes, content types, nesting rules |
+| 3 | `cqa-tools:cqa-titles-descriptions` | P8-P11, Q11 | Title quality, short descriptions, DITA abstracts, assembly intros |
+| 4 | `cqa-tools:cqa-procedures` | P12, Q12-Q16 | Prerequisites, step count, command examples, verification sections |
+| 5 | `cqa-tools:cqa-editorial` | P13-P14, Q1-Q5, Q18, Q20 | Scannability, readability, complex words, fluff, tone, style guide |
+| 6 | `cqa-tools:cqa-links` | P15-P17, Q24-Q25 | Broken xrefs, missing includes, dead URLs, content journey |
+| 7 | `cqa-tools:cqa-legal-branding` | P18-P19, Q17, Q23, O1-O5 | Product names, TP/DP disclaimers, conscious language, legal notices |
+| 8 | `cqa-tools:cqa-user-focus` | Q6-Q11 | Persona targeting, acronym expansion, admonition density |
+| 9 | `cqa-tools:cqa-tables-images` | Q19, Q21-Q22 | Screenshots, table captions and headers, image alt text |
+| 10 | `cqa-tools:cqa-onboarding` | O6-O10 | Support disclaimers, SME verification, Pantheon publishing |
+| 11 | `cqa-tools:cqa-report` | Final | Before-and-after summary report with scores and evidence |
 
 ## Automation scripts
 
-Ten Python scripts in `skills/cqa-assess/scripts/` automate repeatable checks. The `cqa-assess` command runs them automatically. Each script accepts a docs repo path, prints structured output, and exits `0` (pass) or `1` (issues found).
+Ten Python scripts in `skills/cqa-assess/scripts/` automate repeatable checks. The `cqa-assess` command runs them automatically. Each script accepts a docs repo path, prints structured output, and exits `0` (pass), `1` (issues found), or `2` (invalid arguments).
 
 | Script | Parameters | What it checks |
 |--------|-----------|----------------|

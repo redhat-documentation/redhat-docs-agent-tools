@@ -77,11 +77,6 @@ def check_docinfo(title_dir, title_name):
     if year_match:
         return True, True, int(year_match.group(2)), docinfo_path
 
-    # Any 4-digit year
-    year_match = re.search(r'\b(20\d{2})\b', content)
-    if year_match:
-        return True, True, int(year_match.group(1)), docinfo_path
-
     return True, False, None, docinfo_path
 
 

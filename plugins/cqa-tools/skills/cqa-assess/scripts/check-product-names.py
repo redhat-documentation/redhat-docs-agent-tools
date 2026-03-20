@@ -72,27 +72,32 @@ def collect_adoc_files(docs_dir):
 
 
 def parse_code_block_lines(lines):
-    """Return a set of line indices that are inside code/literal blocks."""
+    """Return a set of line indices inside code, literal, passthrough, or comment blocks.
+
+    Tracks a single block state so that delimiters nested inside another
+    block type are treated as content rather than toggling a second block.
+    Handles: ---- (source), .... (literal), ++++ (passthrough), //// (comment).
+    """
     code_lines = set()
-    in_source = False
-    in_literal = False
+    current_block = None  # None, "-", ".", "+", "/"
+
     for i, line in enumerate(lines):
         stripped = line.strip()
-        if stripped.startswith("----") and len(stripped) >= 4 and all(c == "-" for c in stripped):
-            if in_source:
-                code_lines.add(i)  # closing delimiter is also code
-            in_source = not in_source
-            if in_source:
-                code_lines.add(i)  # opening delimiter is also code
+        # Detect block delimiters: ---- .... ++++ ////
+        matched_char = None
+        for delim_char in ("-", ".", "+", "/"):
+            prefix = delim_char * 4
+            if (stripped.startswith(prefix) and len(stripped) >= 4
+                    and all(c == delim_char for c in stripped)):
+                matched_char = delim_char
+                break
+
+        if matched_char is not None and current_block in (None, matched_char):
+            code_lines.add(i)
+            current_block = None if current_block == matched_char else matched_char
             continue
-        if stripped.startswith("....") and len(stripped) >= 4 and all(c == "." for c in stripped):
-            if in_literal:
-                code_lines.add(i)
-            in_literal = not in_literal
-            if in_literal:
-                code_lines.add(i)
-            continue
-        if in_source or in_literal:
+
+        if current_block is not None:
             code_lines.add(i)
     return code_lines
 

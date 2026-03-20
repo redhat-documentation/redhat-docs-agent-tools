@@ -28,7 +28,7 @@ All content must be clearly identified as supported, Technology Preview, or Deve
 
 ### Check procedure
 
-1. **Technology Preview features**: Verify all TP features have the standard `[IMPORTANT]` disclaimer via `snip_technology-preview.adoc`. Cross-reference with the P19/O5 check in `cqa-legal-branding`.
+1. **Technology Preview features**: Verify all TP features have the standard `[IMPORTANT]` disclaimer via `snip_technology-preview.adoc`. Cross-reference with the P19/O5 check in `cqa-tools:cqa-legal-branding`.
 
 2. **Developer Preview features**: Verify all DP features have the standard DP disclaimer. DP features receive zero Red Hat support.
 
@@ -133,7 +133,7 @@ All source content files must be in AsciiDoc (`.adoc`) format following the Red 
 3. **Line endings**:
    ```bash
    # Check for Windows line endings (CRLF)
-   grep -rPl '\r\n' "$DOCS_REPO/topics/" "$DOCS_REPO/assemblies/" --include='*.adoc' | head -5
+   grep -rPl '\r\n' "$DOCS_REPO/topics/" "$DOCS_REPO/assemblies/" "$DOCS_REPO/snippets/" --include='*.adoc' | head -5
    ```
    All files must use LF (Unix) line endings, not CRLF (Windows).
 
@@ -245,9 +245,9 @@ Content must be published to the official Red Hat documentation site (`docs.redh
    - `ccutil` — validates and compiles the assembled content
    - `git_push` — pushes generated Pantheon files back to the branch
 
-3. **Published URL verification**: If you have access, verify the content is accessible at the published URL. The URL pattern is:
-   - `https://docs.redhat.com/en/documentation/<product_slug>/<version>/html-single/<guide_name>/`
-   - Replace `<product_slug>`, `<version>`, and `<guide_name>` with the product's actual values.
+3. **Published URL verification**: If you have access, verify the content is accessible at the published URL. The URL pattern is typically:
+   - `https://docs.redhat.com/en/documentation/__<product_slug>__/__<version>__/html-single/__<guide_name>__/`
+   - Replace the placeholders with the product's actual values from its `common/attributes.adoc`.
 
 4. **Version coverage**: Verify that published documentation covers the current supported versions.
 

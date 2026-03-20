@@ -154,25 +154,26 @@ def check_snippet_content(snippet_path, required_phrases):
 
 
 def file_includes_snippet(filepath, snippet_name):
-    """Check if a file includes the given snippet (directly or via FeatureName pattern)."""
+    """Check if a file includes the given snippet via an actual include:: directive.
+
+    Matches patterns like:
+        include::snippets/snip_technology-preview.adoc[]
+        include::snippets/snip_developer-preview.adoc[]
+    A bare mention of the snippet filename (e.g., in a comment or prose)
+    does not count as including the disclaimer.
+    """
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
     except (UnicodeDecodeError, IOError):
         return False
 
-    # Check for direct include of the snippet
-    if "include::" in content and snippet_name in content:
-        return True
-
-    # Check for FeatureName + snippet include pattern
-    # Pattern: :FeatureName: ... followed by include::snippets/snip_...-preview.adoc[]
-    has_feature_name = ":FeatureName:" in content
-    has_include = snippet_name in content
-    if has_feature_name and has_include:
-        return True
-
-    return False
+    # Check for an actual include:: directive referencing the snippet
+    include_pattern = re.compile(
+        r'^include::.*' + re.escape(snippet_name) + r'\b',
+        re.MULTILINE,
+    )
+    return bool(include_pattern.search(content))
 
 
 def find_tp_dp_mentions(filepath, rel_path):
@@ -343,12 +344,8 @@ def main():
             elif has_inline:
                 status = "OK (has inline disclaimer)"
             else:
-                # Check if this is a snippet file (table) — acceptable without full disclaimer
-                if rel_path.startswith("snippets/"):
-                    status = "OK (snippet file — labels only)"
-                else:
-                    status = "NEEDS DISCLAIMER"
-                    issues.append(f"{rel_path}: mentions TP but has no disclaimer")
+                status = "NEEDS DISCLAIMER"
+                issues.append(f"{rel_path}: mentions TP but has no disclaimer")
             print(f"     {rel_path}: {status}")
     else:
         print("   No files mention TP in prose.")

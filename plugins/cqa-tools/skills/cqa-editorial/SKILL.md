@@ -187,7 +187,7 @@ For each file in `topics/` and `assemblies/`, check the main title (`= `) and su
 #### User pronoun rules
 
 - **Animate users** (persons, human accounts): use "who" — "users who want to configure..."
-- **Inanimate users** (system accounts, Linux users, SELinux users): use "that" — "a Linux user that has restricted access..."
+- **Inanimate entities** (system accounts, user mappings, roles): use "that" — "a Linux user account that has restricted access...", "an SELinux user mapping that restricts..."
 - **Ambiguous relative clauses**: When "that" could refer to either an inanimate object or an animate user, restructure the sentence to eliminate ambiguity
 
 #### Verification section coverage
