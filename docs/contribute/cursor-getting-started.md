@@ -6,21 +6,44 @@ icon: lucide/book-open
 
 Use the following sections if you are new to Cursor or to agent-style workflows in an editor. The page explains basic ideas first, then concrete steps to open the repository and try a small task and then a more complex task.
 
-For how these ideas map to Red Hat Docs Agent Tools (skills, commands, parity with Claude Code), see [Cursor workflows](cursor-workflows.md).
+**Claude Code and parity:** The plugins in the repository also target **Claude Code**, a separate product. If you only use Cursor, you can treat Claude Code as background until you need the detail in [Cursor workflows](cursor-workflows.md) (skills, commands, and parity with Claude Code).
 
-## What Cursor is in this context
+## Start here
 
-Cursor is a code editor based on VS Code with integrated AI assistance. If you know VS Code, you will already feel comfortable in the Cursor UI.
+Use the following checklist as a fast path; the sections below explain each step.
+
+1. Install Cursor, Git, and `python3` for the docs build. See [Prerequisites](#prerequisites).
+1. Clone the repository and open the **repository root** folder in Cursor. See [Open the repository as the workspace](#open-the-repository-as-the-workspace).
+1. Open the **Agent** panel, pick a **mode** and **model**, then type a message. See [Orient yourself in the UI](#orient-yourself-in-the-ui).
+1. Attach **`AGENTS.md`** before you ask for substantive edits. See [Load project instructions](#load-project-instructions).
+1. Try a [minimal workflow](#try-a-minimal-workflow), optionally [invoke a more complex workflow](#invoke-a-more-complex-workflow), then [preview the documentation site](#preview-the-documentation-site) and review [Next steps for contributors](#next-steps-for-contributors).
+
+A [Suggested path](#suggested-path-for-a-new-contributor) diagram at the end of the page summarizes the same flow.
+
+## Terms you will see
+
+The following terms appear often in Cursor and in the repository documentation.
+
+1. **Workspace** — The folder Cursor has open as the project. In the following instructions, the workspace should be the **repository root** (the clone folder that contains `AGENTS.md` and `plugins/`).
+1. **`plugin:skill`** — The fully qualified name of a skill (for example `docs-tools:jira-reader`). The repository requires that form everywhere; see [Skills and fully qualified names](#skills-and-fully-qualified-names).
+1. **`@` mention** — Typing `@` in the chat or Agent input to attach a file or symbol to the message so the model includes it in context.
+1. **Agent panel** — The Cursor UI area for chat and Agent tasks (shortcut **Cmd+I** / **Ctrl+I**). An **agent file** under `plugins/<plugin>/agents/` is unrelated Markdown (a persona); do not confuse the two.
+1. **Frontier model** — The AI model selected for a request (for example from the model dropdown). **Context window** is how much text the model can consider at once; **Max Mode** uses a larger window when your plan allows it.
+1. **Claude Code** — A separate assistant product that uses the same plugin Markdown. You do not install it inside Cursor; see [Cursor workflows](cursor-workflows.md) for how the files map.
+
+## What Cursor is
+
+Cursor is a code editor based on VS Code with integrated AI assistance. If you know VS Code, you will already feel comfortable in the Cursor UI. If you have never used VS Code, treat Cursor like any desktop editor with a file tree on the side, tabs for open files, and a **Terminal** menu for a built-in shell. Use **File** → **Open Folder** (or your operating system equivalent) to open the clone folder `redhat-docs-agent-tools/`. The **Agent** side panel is separate from the file tree; open it when you want AI help.
+
+Using Cursor, you can select different modes (`Ask`, `Debug`, `Plan`, `Agent`) and also choose the model you want to use to provide assistance (including different `claude` and `gpt` models).
 
 In the Red Hat Docs Agent Tools repository, you use Cursor to read and edit skills, commands, and agents under `plugins/`. These items are formatted as plain Markdown. You can also preview the Red Hat Docs Agent Tools documentation site locally with `make serve`.
 
-The Red Hat Docs Agent Tools repository also includes [AGENTS.md](https://github.com/redhat-documentation/redhat-docs-agent-tools/blob/main/AGENTS.md) and [`.cursor/rules/`](https://github.com/redhat-documentation/redhat-docs-agent-tools/tree/main/.cursor/rules), which enables the Cursor assistant to follow the same conventions as [CLAUDE.md](https://github.com/redhat-documentation/redhat-docs-agent-tools/blob/main/CLAUDE.md) for Claude Code.
+The Red Hat Docs Agent Tools repository also includes [AGENTS.md](https://github.com/redhat-documentation/redhat-docs-agent-tools/blob/main/AGENTS.md) and [`.cursor/rules/`](https://github.com/redhat-documentation/redhat-docs-agent-tools/tree/main/.cursor/rules), which enables the Cursor assistant to follow the same conventions as [CLAUDE.md](https://github.com/redhat-documentation/redhat-docs-agent-tools/blob/main/CLAUDE.md) for collaborators who use Claude Code elsewhere.
 
 ## What agentic workflows mean here
 
 An **agentic** workflow means the model can work across multiple steps and files using a project's context (open files, repository layout, and rules) and is not restricted to answering a single isolated question as with most generic chat LLMs like Gemini or ChatGPT.
-
--In practice, you provide a goal in a prompt. The assistant then might read files, propose edits, and run terminal commands where allowed. For security purposes, you will be prompted often for permission by the asstant to carry out actions.
 
 In practice, you provide a goal in a prompt. The assistant might then read files, propose edits, and run terminal commands where allowed. For security purposes, the assistant will often prompt you for permission before carrying out actions.
 
@@ -40,23 +63,6 @@ Always reference **skills** with the fully qualified form `plugin:skill` (for ex
 
 Do not paste secrets, credentials, or customer-only content into the chat. Follow your team and organizational policies for AI-assisted editing. For how Cursor handles data and privacy, see the [Cursor documentation](https://cursor.com/docs).
 
-## Suggested path for a new contributor
-
-```mermaid
-flowchart TD
-  newbie[New contributor]
-  prereq[Prerequisites Cursor Git python3]
-  workspace[Open repo root as workspace]
-  orient[Orient UI modes and model]
-  loadRules[Load AGENTS.md]
-  minimal[Try minimal workflow]
-  complex[Invoke complex workflow]
-  site[make update and make serve]
-  nextSteps[CONTRIBUTING and cursor workflows]
-  tips[Tips and troubleshooting]
-  newbie --> prereq --> workspace --> orient --> loadRules --> minimal --> complex --> site --> nextSteps
-  nextSteps -.-> tips
-```
 ## Prerequisites
 
 1. You have installed Cursor.
@@ -73,11 +79,15 @@ flowchart TD
 
    Use your fork URL instead if you contribute through a fork (for example `https://github.com/<your-username>/redhat-docs-agent-tools.git`).
 
-1. In Cursor, open the **repository root** as the folder or workspace, not a parent directory that only contains the repo. After the clone command above, that folder is `redhat-docs-agent-tools/`.
+1. In Cursor, use **File** → **Open Folder** (or your operating system equivalent) and select the **repository root**, not a parent directory that only contains the repo. After the clone command above, that folder is `redhat-docs-agent-tools/`. The workspace root is the folder that contains **`Makefile`**, **`AGENTS.md`**, and **`plugins/`** in one place.
 
 Paths in [AGENTS.md](https://github.com/redhat-documentation/redhat-docs-agent-tools/blob/main/AGENTS.md) and in scripts assume the workspace root matches the repository root.
 
+**Integrated terminal:** To run `git`, `make`, or `python3` commands later, open **Terminal** → **New Terminal** (or the command palette shortcut your build uses). If the shell opens in another directory, run `cd` into `redhat-docs-agent-tools` and confirm with `pwd` (Linux or macOS) or `cd` with no arguments (Windows PowerShell: `Get-Location`) that the current directory lists `Makefile` when you run `ls` or `dir`.
+
 ## Orient yourself in the UI
+
+**If you only remember one thing:** Use **Ask** to explore **without** edits; use **Agent** for normal edits and commands; use **Plan** when you want a written plan before large changes; use **Debug** only for **runtime** bugs (scripts, tests), not for ordinary Markdown edits.
 
 Cursor exposes the coding assistant in the **Agent** side panel (common shortcut **Cmd+I** on macOS and **Ctrl+I** on Windows and Linux). Open that panel first, then choose **how** the assistant should behave (**mode**) and **which model** should answer (**model**), then type your message.
 
@@ -108,9 +118,10 @@ Debug mode targets **bugs that need runtime evidence**. The assistant forms hypo
 
 **Choosing a model**
 
-The Agent input area includes a **model** control (often a dropdown). That control selects which **frontier model** runs the request. Details and billing differ by plan; see [Models and pricing](https://cursor.com/docs/models).
+The Agent input area includes a **model** control (often a dropdown). **Auto** (and related **Composer** options where your plan offers them) is a good default: Cursor **chooses** a model to balance quality, speed, and cost. Details and billing differ by plan; see [Models and pricing](https://cursor.com/docs/models).
 
-1. **Auto** (and related **Composer** options where your plan offers them) — Cursor **chooses** a model to balance quality, speed, and cost for everyday work. A good default for most tasks in the repository.
+**More detail on model choices**
+
 1. **A specific named model** — You pick a provider model explicitly. That usually draws from the **API** usage pool at the rate for that model, so per-task cost varies. Use a stronger model when tasks are large, subtle, or cross many files; use a lighter or faster model for short questions or mechanical edits if your plan exposes those choices.
 1. **Max Mode** — Increases the **context window** to the maximum the model supports for harder tasks; it typically consumes usage faster. Enable when the assistant needs more of the tree in one pass.
 1. **Policy** — Your organization may limit which models you may select. Follow internal rules.
@@ -145,7 +156,7 @@ If your Cursor build does not show `AGENTS.md` after `@`, try **`@`** then the f
 
 ## Try a minimal workflow
 
-1. Open [`plugins/hello-world/commands/greet.md`](https://github.com/redhat-documentation/redhat-docs-agent-tools/blob/main/plugins/hello-world/commands/greet.md) in the workspace. Cursor does not support `/hello-world:greet` as a slash command; read the **Implementation** and **Examples** sections and use that text as the basis for a chat prompt or agent task.
+1. In the workspace, open `plugins/hello-world/commands/greet.md` from the repository root (use the file tree or **File** → **Open File**). You can also [view the file on GitHub](https://github.com/redhat-documentation/redhat-docs-agent-tools/blob/main/plugins/hello-world/commands/greet.md). Cursor does not support `/hello-world:greet` as a slash command; read the **Implementation** and **Examples** sections and use that text as the basis for a chat prompt or agent task.
 1. Alternatively, open any `SKILL.md` under `plugins/docs-tools/skills/` and ask the assistant to summarize when the skill applies, using the fully qualified name `docs-tools:<skill-name>` in the answer.
 
 ## Invoke a more complex workflow
@@ -189,9 +200,16 @@ You would paste or adapt that block in **Agent** mode after attaching the listed
 
 **Privacy:** Long-running threads with more context increase the chance of accidental paste errors. Do not put secrets or customer-only material into the chat; see [Privacy and responsibility](#privacy-and-responsibility) above.
 
+**Checklist before you run a complex task**
+
+1. Attach or cite [AGENTS.md](https://github.com/redhat-documentation/redhat-docs-agent-tools/blob/main/AGENTS.md).
+1. Attach the relevant `SKILL.md`, command file, or agent file if the task must follow one of them.
+1. State the goal, constraints, and fully qualified `plugin:skill` name in the prompt.
+
 ## Preview the documentation site
 
 1. Install Zensical if needed: `python3 -m pip install zensical`.
+1. Open the [integrated terminal](#open-the-repository-as-the-workspace) in the repository root (the directory that contains `Makefile`). If you are unsure, run `pwd` and confirm you see `redhat-docs-agent-tools` (or your fork folder name) as the last path segment and that `ls Makefile` or `dir Makefile` succeeds.
 1. From the repository root, run `make update` to regenerate plugin-related pages under `docs/` (generated files may be gitignored; see [CONTRIBUTING.md](https://github.com/redhat-documentation/redhat-docs-agent-tools/blob/main/CONTRIBUTING.md)).
 1. Run `make serve` to start the local site, or `make build` for a full build.
 
@@ -201,6 +219,26 @@ See the [README.md](https://github.com/redhat-documentation/redhat-docs-agent-to
 
 1. Read [Cursor workflows](cursor-workflows.md) for repository-specific behavior and parity with Claude Code.
 1. Follow [CONTRIBUTING.md](https://github.com/redhat-documentation/redhat-docs-agent-tools/blob/main/CONTRIBUTING.md) for branches, `plugin.json`, marketplace sync, and pull requests.
+
+## Suggested path for a new contributor
+
+The diagram summarizes the path described on the page. Read the sections **above** in order; procedural detail begins with [Prerequisites](#prerequisites).
+
+```mermaid
+flowchart TD
+  newbie[New contributor]
+  prereq[Prerequisites Cursor Git python3]
+  workspace[Open repo root as workspace]
+  orient[Orient UI modes and model]
+  loadRules[Load AGENTS.md]
+  minimal[Try minimal workflow]
+  complex[Invoke complex workflow]
+  site[make update and make serve]
+  nextSteps[CONTRIBUTING and cursor workflows]
+  tips[Tips and troubleshooting]
+  newbie --> prereq --> workspace --> orient --> loadRules --> minimal --> complex --> site --> nextSteps
+  nextSteps -.-> tips
+```
 
 ## Tips and troubleshooting
 
