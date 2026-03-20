@@ -20,7 +20,9 @@ The Red Hat Docs Agent Tools repository also includes [AGENTS.md](https://github
 
 An **agentic** workflow means the model can work across multiple steps and files using a project's context (open files, repository layout, and rules) and is not restricted to answering a single isolated question as with most generic chat LLMs like Gemini or ChatGPT.
 
-In practice, you provide a goal in a prompt. The assistant then might read files, propose edits, and run terminal commands where allowed. For security purposes, you will be prompted often for permission by the asstant to carry out actions.
+-In practice, you provide a goal in a prompt. The assistant then might read files, propose edits, and run terminal commands where allowed. For security purposes, you will be prompted often for permission by the asstant to carry out actions.
+
+In practice, you provide a goal in a prompt. The assistant might then read files, propose edits, and run terminal commands where allowed. For security purposes, the assistant will often prompt you for permission before carrying out actions.
 
 The project rules in AGENTS.md and `.cursor/rules/` act as guardrails so changes stay aligned with repository naming, script paths, contribution expectations, and other restrictions.
 
