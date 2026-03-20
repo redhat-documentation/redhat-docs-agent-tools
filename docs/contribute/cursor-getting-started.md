@@ -24,12 +24,12 @@ A [Suggested path](#suggested-path-for-a-new-contributor) diagram at the end of 
 
 The following terms appear often in Cursor and in the repository documentation.
 
-1. **Workspace** — The folder Cursor has open as the project. In the following instructions, the workspace should be the **repository root** (the clone folder that contains `AGENTS.md` and `plugins/`).
-1. **`plugin:skill`** — The fully qualified name of a skill (for example `docs-tools:jira-reader`). The repository requires that form everywhere; see [Skills and fully qualified names](#skills-and-fully-qualified-names).
-1. **`@` mention** — Typing `@` in the chat or Agent input to attach a file or symbol to the message so the model includes it in context.
-1. **Agent panel** — The Cursor UI area for chat and Agent tasks (shortcut **Cmd+I** / **Ctrl+I**). An **agent file** under `plugins/<plugin>/agents/` is unrelated Markdown (a persona); do not confuse the two.
-1. **Frontier model** — The AI model selected for a request (for example from the model dropdown). **Context window** is how much text the model can consider at once; **Max Mode** uses a larger window when your plan allows it.
-1. **Claude Code** — A separate assistant product that uses the same plugin Markdown. You do not install it inside Cursor; see [Cursor workflows](cursor-workflows.md) for how the files map.
+- **Workspace** — The folder Cursor has open as the project. In the following instructions, the workspace should be the **repository root** (the clone folder that contains `AGENTS.md` and `plugins/`).
+- **`plugin:skill`** — The fully qualified name of a skill (for example `docs-tools:jira-reader`). The repository requires that form everywhere; see [Skills and fully qualified names](#skills-and-fully-qualified-names).
+- **`@` mention** — Typing `@` in the chat or Agent input to attach a file or symbol to the message so the model includes it in context.
+- **Agent panel** — The Cursor UI area for chat and Agent tasks (shortcut **Cmd+I** / **Ctrl+I**). An **agent file** under `plugins/<plugin>/agents/` is unrelated Markdown (a persona); do not confuse the two.
+- **Frontier model** — The AI model selected for a request (for example from the model dropdown). **Context window** is how much text the model can consider at once; **Max Mode** uses a larger window when your plan allows it.
+- **Claude Code** — A separate assistant product that uses the same plugin Markdown. You do not install it inside Cursor; see [Cursor workflows](cursor-workflows.md) for how the files map.
 
 ## What Cursor is
 
