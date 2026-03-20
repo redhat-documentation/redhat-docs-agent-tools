@@ -1,0 +1,205 @@
+---
+name: verify-procedure
+description: Execute and test AsciiDoc procedures on a live system. Runs every command and validates every YAML block against a real cluster, VM, or host. Requires an active connection to the target system. For static review without a live system, use the docs-tools:technical-reviewer agent instead.
+author: Red Hat Documentation Team
+allowed-tools: Bash, Read, Edit, Glob
+---
+
+# Procedure Verification Skill
+
+This skill executes documented procedures against a live system to prove they work end-to-end. It is the "guided exercise tester" — it runs every command, applies every YAML block, and reports what passes and what breaks.
+
+**This is not a review tool.** For reviewing documentation quality, prerequisites, and structure without a live system, use the `docs-tools:technical-reviewer` agent.
+
+## Prerequisites
+
+You must be connected to the target system before invoking this skill:
+
+- **OpenShift/Kubernetes**: `oc login` or valid `~/.kube/config`
+- **RHEL/Linux**: Local access or SSH session to the target host
+- **Ansible**: `ansible --version` succeeds and inventory is accessible
+
+At invocation, the skill runs a connectivity check (e.g., `oc whoami`). If the check fails, the skill exits and directs the user to log in first or use `docs-tools:technical-reviewer` for offline review.
+
+## How it works
+
+1. **Parse**: Read the `.adoc` file and extract all source blocks (`[source,terminal]`, `[source,bash]`, `[source,yaml]`, `[source,json]`, `[source,ini]`, `[source,toml]`, `[source,text]`, `[source,python]`, `[source,ruby]`), associating each with its numbered step.
+2. **Execute**: Run the `verify_proc.rb` script against the file:
+   ```bash
+   ruby scripts/verify_proc.rb <file.adoc>
+   ruby scripts/verify_proc.rb --cleanup <file.adoc>
+   ```
+3. **Report**: Present the script output and flag any additional observations.
+
+## What the Ruby script does
+
+The `scripts/verify_proc.rb` script is a procedure runner that processes an AsciiDoc file sequentially:
+
+### Working directory
+
+Creates a temporary working directory (`/tmp/verify-proc-*`) for each run. All YAML files referenced in the procedure are saved here, and all bash commands execute with this as their working directory. This ensures:
+- Relative file paths in commands (e.g., `oc create -f foo.yaml`) resolve correctly
+- The user's working directory is not polluted with temporary files
+- Each run is isolated from previous runs
+
+### Step extraction with hierarchical numbering
+
+- Parses AsciiDoc numbered steps (`. Step text`, `.. Substep`, `... Sub-substep`) and tracks depth
+- Associates each source block with its parent step
+- Uses hierarchical step labels: `1`, `1.a`, `1.b`, `2.a.i` instead of flat sequential numbers
+- This makes it easy to correlate script output with the actual procedure structure
+
+### Save-YAML-to-file linking
+
+Detects steps that instruct the user to save content to a file. The step text doesn't need to contain the word "YAML" — any backtick-quoted or bare filename with a recognized extension is matched. Real-world phrasing varies widely across Red Hat docs:
+
+```text
+OCP examples:
+.. Save the following YAML in the `foo.yaml` file:
+.. Create a file named load-sctp-module.yaml that contains...
+.. Save the following YAML manifest as integration-source-aws-ddb.yaml :
+.. Create a route definition called hello-openshift-route.yaml :
+
+RHEL examples:
+.. Edit the `/etc/chrony.conf` configuration file:
+.. Create a playbook file, for example ~/playbook.yml, with the following content:
+.. Create a YAML file named sap-netweaver.yml with the following content:
+.. Create a configuration file named `default` and add it to the `pxelinux.cfg/` directory:
+```
+
+Steps without a filename are not matched (no false positives):
+
+```text
+.. Apply the following YAML for a specific backing store:
+.. Create a config map in the Velero namespace...
+.. Use the following example YAML file to create the deployment:
+```
+
+Absolute paths (e.g., `/etc/chrony.conf`) are validated for syntax but never written to the filesystem — the script should not modify system files during verification.
+
+Supported extensions: `.yaml`, `.yml`, `.json`, `.conf`, `.cfg`, `.sh`, `.txt`, `.toml`, `.ini`, `.properties`
+
+When a filename is detected:
+1. The content is validated for syntax (YAML or JSON)
+2. The content is written to `<workdir>/<filename>`
+3. Subsequent commands like `oc create -f foo.yaml` find the file and execute successfully
+
+### Conditional directive warnings
+
+The parser cannot evaluate `ifdef::`/`ifndef::` conditionals. When these directives are encountered, the script emits a warning with the line number so the user knows that step numbering inside the conditional block may be inaccurate. This is a deliberate choice — silently producing wrong step associations is worse than a visible warning.
+
+### Smart skipping
+
+- **Example output blocks**: Detects blocks preceded by "Example output", "sample output", "expected output", or "output is shown" and skips them
+- **Placeholder blocks**: Detects `<multi_word_placeholder>` patterns, `${VAR}` syntax, `CHANGEME`, or `REPLACE` markers and skips those steps
+
+### AsciiDoc attribute resolution
+
+When a source block has `subs="attributes+"`, the script resolves `{attr-name}` references before validation or execution. Attributes are loaded from two sources, in priority order:
+
+1. **The document itself** — `:attr-name: value` lines in the `.adoc` file
+2. **An `_attributes.adoc` file** — looked up in the same directory as the file, then one level up
+
+This approach works across Red Hat docs repos regardless of which attribute names they use. No attribute names are hardcoded.
+
+As a special case, `{product-version}` falls back to live cluster detection via `oc version` if no document-level definition is found.
+
+### YAML validation
+
+- Parses every `[source,yaml]` block with Ruby's YAML parser for syntax errors
+- If the YAML contains `apiVersion:` (Kubernetes resource), runs `oc apply --dry-run=client` or `kubectl apply --dry-run=client` (auto-detects which CLI is available)
+- Reports `[VALID]` or `[FAILURE]` with the specific error
+
+### JSON validation
+
+- Parses `[source,json]` blocks with Ruby's JSON parser for syntax errors
+- Reports `[VALID]` or `[FAILURE]`
+
+### Config and script validation
+
+- `[source,ini]`, `[source,toml]`, `[source,text]` blocks are recorded and saved to the working directory (for relative paths) or validated without writing (for absolute paths like `/etc/chrony.conf`)
+- `[source,python]` blocks are syntax-checked via `python3 -c "compile(...)"`
+- `[source,ruby]` blocks are syntax-checked via `ruby -c`
+- Absolute paths in step instructions (common in RHEL procedures) are validated but never written to the filesystem
+
+### Bash execution
+
+- Strips prompt symbols from command lines, handling conventions across products:
+  - OCP/K8s: `$ oc get pods`
+  - RHEL root: `# dnf install`, `[root@host ~]# systemctl`, `~]# subscription-manager`
+  - Mixed: `$ sudo dnf install`
+- Joins backslash-continued lines
+- Executes each command via `Open3.capture3` in the working directory
+- For verification steps (containing words like "verify", "check", "confirm"), displays the command output
+- On failure, logs the error but continues to the next step
+
+### Best practices check
+
+- Checks for a `.Prerequisites` section (or equivalent heading/anchor) in the document
+- Warns if no prerequisites section is found, since its absence is a stronger signal of undocumented assumptions than scanning for specific commands
+
+### Resource tracking and cleanup
+
+The script tracks resources created during verification across products:
+- **K8s/OCP**: Records `oc create -f` / `oc apply -f` commands and captures resource identifiers from stdout (e.g., `namespace/openshift-ptp created`)
+- **RHEL**: Tracks `systemctl enable/start` services and `dnf/yum install` packages
+
+When invoked with `--cleanup`:
+- Deletes K8s resources in reverse order using `--ignore-not-found`
+- Stops and disables tracked services via `systemctl`
+- Removes installed packages via `dnf remove`
+- Removes the temporary working directory
+
+Without `--cleanup`, the working directory and resources are retained so the user can inspect them.
+
+### Summary
+
+- Reports total executable steps, pass count, and fail count
+- Uses hierarchical step labels matching the procedure structure
+- Lists each failed step with its error message
+- Flags if no verification step exists in the procedure
+
+## Output format
+
+The script produces structured terminal output:
+
+```text
+--- Starting Procedure Validation: <file.adoc> ---
+[INFO] Working directory: /tmp/verify-proc-abc123
+
+[Step 1] Create a namespace for the PTP Operator.
+
+[Step 1.a] Save the following YAML in the `ptp-namespace.yaml` file:
+[VALID] YAML syntax for Step 1.a is correct.
+[INFO] Saved YAML to /tmp/verify-proc-abc123/ptp-namespace.yaml
+[VALID] Resource logic (dry-run via oc) passed for Step 1.a.
+
+[Step 1.b] Create the `Namespace` CR:
+Executing: oc create -f ptp-namespace.yaml
+[SUCCESS] Step 1.b executed.
+
+[Step 4] To verify that the Operator is installed, enter the following command:
+Executing: oc get csv -n openshift-ptp -o custom-columns=...
+[SUCCESS] Step 4 executed.
+Output: Name                         Phase
+ptp-operator.v4.21.0-...     Succeeded
+-> Verification successfully performed.
+
+[Step 4] To verify that the Operator is installed, enter the following command:
+[SKIP] Example output - not executed
+
+============================================================
+FINAL SUMMARY
+============================================================
+Total executable steps: 7
+Passed: 7
+Failed: 0
+============================================================
+✓ All steps PASSED
+============================================================
+
+[INFO] Working directory retained at: /tmp/verify-proc-abc123
+[INFO] Run with --cleanup to auto-delete resources and working directory after verification.
+```
+
+After the script output, add observations about any patterns noticed during execution (timing issues, missing waits, ordering problems).
