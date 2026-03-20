@@ -63,11 +63,34 @@ Your **product documentation** usually lives in a different Git repository from 
 
 **Recommended layout: multi-root workspace**
 
-1. Clone [redhat-docs-agent-tools](https://github.com/redhat-documentation/redhat-docs-agent-tools) so the skill sources from the Tools repo exist on your local filesystem.
-1. In Cursor, open your documentation repository as the first folder, then use **File** > **Add Folder to Workspace** and add the `redhat-docs-agent-tools` clone. Both trees appear in the sidebar so **`@`** can attach files from either repo.
-1. Open the file you want to edit (from **your** docs repo).
-1. In **Agent** mode, attach **`AGENTS.md`** from the Tools repository root, then attach the **`SKILL.md`** for the skill you want (for example `plugins/docs-tools/skills/rh-ssg-formatting/SKILL.md`). Attach your topic file if it is not already in context.
-1. Send a prompt that names the fully qualified skill and the path to **your** file (relative to **your** docs repo root). See the example below.
+1. **Put both repositories on disk.** Clone [redhat-docs-agent-tools](https://github.com/redhat-documentation/redhat-docs-agent-tools) so the skill sources exist locally. A common layout is a shared parent directory with two sibling folders:
+
+   ```text
+   ~/repos/
+     my-product-docs/          # your documentation repository
+     redhat-docs-agent-tools/  # this plugin and skills repository
+   ```
+
+   Example commands (Linux or macOS):
+
+   ```bash
+   mkdir -p ~/repos && cd ~/repos
+   git clone https://github.com/your-org/my-product-docs.git
+   git clone https://github.com/redhat-documentation/redhat-docs-agent-tools.git
+   ```
+
+1. **Open a multi-root workspace in Cursor.** Use **File** > **Open Folder** and select `~/work/my-product-docs` (or your real docs path) first. Then use **File** > **Add Folder to Workspace** and add `~/repos/redhat-docs-agent-tools`. Save the workspace if prompted (for example **File** > **Save Workspace As** → `my-docs-and-tools.code-workspace`) so you can reopen both folders next time. In the sidebar you should see **two** top-level roots, often labeled with the folder names `my-product-docs` and `redhat-docs-agent-tools`.
+
+1. **Open a file from your docs repo.** For example open `modules/install/overview.adoc`, `assemblies/assembly-about.adoc`, or `README.md` at the root of `my-product-docs`. The path depends on your project. The file must be located under **your** documentation tree, not under `redhat-docs-agent-tools/`.
+
+1. **Attach Agent Tools repo files in Agent mode.** Switch to **Agent** mode. In the message box, type **`@`** and pick:
+
+   - `AGENTS.md` from the **redhat-docs-agent-tools** root (if the picker shows a prefix, choose the copy that lives next to `plugins/`, not a file from your product docs).
+   - The skill file you need, for example `plugins/docs-tools/skills/rh-ssg-formatting/SKILL.md`, again from the **redhat-docs-agent-tools** tree.
+
+   If the menu lists workspace folder names, select paths that start with **`redhat-docs-agent-tools/`**. Attach your topic file the same way (for example `my-product-docs/modules/install/overview.adoc`) if it is not already open in the editor context.
+
+1. **Send a prompt with `plugin:skill` and your paths.** Name the fully qualified skill and paths under **your** docs repo root, as in the example block below. Use repo-relative paths (for example `modules/install/overview.adoc`) so the assistant edits the correct file.
 
 Browse available skills in the [Cursor skill index](../cursor-skills-index.md) or under `plugins/` in the clone.
 
